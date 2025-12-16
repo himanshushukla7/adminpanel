@@ -38,27 +38,36 @@ class _ServiceCategoryScreenState extends State<ServiceCategoryScreen> {
     _loadData();
   }
 
-  Future<void> _loadData() async {
+Future<void> _loadData() async {
     try {
-      // 1. Load Parent Categories (for dropdown)
+      setState(() => _isLoading = true);
+
+      // 1. Load Parent Categories first
       final parents = await _api.getCategories();
       
-      // 2. Load Service Categories (for table)
-      // Passing null to get all service categories
-      final services = await _api.getServiceCategories(null);
+      List<ServiceCategoryModel> allServices = [];
+
+      // 2. Loop through EVERY parent category and fetch its specific services
+      for (var parent in parents) {
+        // Fetch services for this specific parent ID
+        final services = await _api.getServiceCategories(parent.id);
+        
+        // Add them to the master list
+        allServices.addAll(services);
+      }
       
       if (mounted) {
         setState(() {
           _parentCategories = parents;
-          _serviceCategories = services;
+          _serviceCategories = allServices; // This now contains data from ALL categories
           _isLoading = false;
         });
       }
     } catch (e) {
+      print("Error loading data: $e");
       if (mounted) setState(() => _isLoading = false);
     }
   }
-
   // --- Form Logic ---
   Future<void> _pickImage() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);

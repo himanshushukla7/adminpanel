@@ -94,12 +94,20 @@ class ApiService {
   }
 
   // --- 3. SERVICE CATEGORIES ---
+  // --- 3. SERVICE CATEGORIES ---
   Future<List<ServiceCategoryModel>> getServiceCategories(String? parentId) async {
     try {
+      // If parentId is null, we can't fetch specific services based on current API design
+      if (parentId == null) return [];
+
       final response = await _dio.get('/admin/getServiceCategory', 
-        queryParameters: parentId != null ? {'categoryId': parentId} : {});
+        queryParameters: {'categoryId': parentId});
+      
       if (response.data['result'] is List) {
-        return (response.data['result'] as List).map((x) => ServiceCategoryModel.fromJson(x)).toList();
+        return (response.data['result'] as List).map((x) => 
+          // PASS THE parentId HERE so the model knows its parent
+          ServiceCategoryModel.fromJson(x, linkCategoryId: parentId)
+        ).toList();
       }
       return [];
     } catch (e) { return []; }

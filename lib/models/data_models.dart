@@ -37,20 +37,28 @@ class ServiceCategoryModel {
   final String id;
   final String name;
   final String? imgLink;
-  final String categoryId;
+  final String categoryId; // We need this for the UI, but the API doesn't return it!
 
-  ServiceCategoryModel({required this.id, required this.name, this.imgLink, required this.categoryId});
+  ServiceCategoryModel({
+    required this.id, 
+    required this.name, 
+    this.imgLink, 
+    required this.categoryId
+  });
 
-  factory ServiceCategoryModel.fromJson(Map<String, dynamic> json) {
+  // We add an optional 'injectedCategoryId' because the API response 
+  // doesn't tell us which parent this belongs to, but we know it from the request.
+  factory ServiceCategoryModel.fromJson(Map<String, dynamic> json, {String linkCategoryId = ''}) {
     return ServiceCategoryModel(
-      id: json['id']?.toString() ?? '',
-      name: json['name'] ?? 'Unknown',
+      // FIX 1: Map the correct keys from Swagger
+      id: json['serviceCategoryId']?.toString() ?? json['id']?.toString() ?? '',
+      name: json['serviceCategoryName'] ?? json['name'] ?? 'Unknown',
       imgLink: json['imgLink'],
-      categoryId: json['categoryId']?.toString() ?? '',
+      // FIX 2: Use the ID we pass in, because the JSON doesn't contain it
+      categoryId: linkCategoryId, 
     );
   }
 }
-
 class ServiceModel {
   final String id;
   final String name;
