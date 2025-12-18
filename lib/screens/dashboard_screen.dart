@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'employee_role_setup_screen.dart';
 import 'employee_role_list_screen.dart';
 import 'add_employee_screen.dart';
+import 'send_notification_screen.dart';
+import 'promotional_banners_screen.dart';
 // --- WIDGET IMPORTS ---
 import '../widgets/dashboard_sidebar.dart';
 import '../widgets/dashboard_topbar.dart';
@@ -28,6 +30,10 @@ import 'booking_report_screen.dart';
 import 'provider_report_screen.dart';
 import 'employee_list_screen.dart';
 import 'role_update_screen.dart';
+import 'discount_list_screen.dart';
+import 'discount_add_screen.dart';
+import 'coupon_list_screen.dart';
+import 'add_coupon_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -178,6 +184,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       case 'employee/add':  
         return const AddEmployeeScreen();
+      case 'promotion/banner':  
+        return const PromotionalBannersScreen();
+      case 'promotion/discount/list':
+        return const DiscountListScreen();
+      case 'promotion/discount/add':
+        return const AddDiscountScreen();
+      case 'promotion/coupon/list':
+        return const CouponListScreen();
+      case 'promotion/coupon/add':
+        return const AddCouponScreen();
+      case 'notification/send':
+        return const SendNotificationScreen(); // Placeholder for Notification Screen
+
       default:
         return const DashboardHome();
     }

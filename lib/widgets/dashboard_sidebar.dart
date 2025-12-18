@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'sidebar_widgets.dart';
 
-// If you put the helper widgets in a separate file, import them here.
-// Otherwise, paste Part 2 at the bottom of this file.
-
 class DashboardSidebar extends StatefulWidget {
   final bool collapsed;
   final String? currentRoute;
@@ -24,14 +21,18 @@ class DashboardSidebar extends StatefulWidget {
 
 class _DashboardSidebarState extends State<DashboardSidebar> {
   // Expansion States
-  bool _bookingsOpen = true;
+  bool _bookingsOpen = false;
   bool _categorySetupOpen = false;
   bool _servicesOpen = false;
   bool _customersOpen = false;
   bool _employeesOpen = false;
-  // --- NEW: States for Reports & Analytics ---
   bool _reportsOpen = false;
   bool _analyticsOpen = false;
+  bool _notificationsOpen = false;
+
+  // --- NEW: Separate States for Promotion Sub-sections ---
+  bool _discountsOpen = false;
+  bool _couponsOpen = false;
 
   bool _isActive(String key) {
     final r = widget.currentRoute ?? '';
@@ -347,12 +348,9 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                   ),
                 ),
 
-                // ============================================================
-                // NEW: TRANSACTION REPORTS & ANALYTICS
-                // ============================================================
+                // --- TRANSACTION REPORTS & ANALYTICS ---
                 SectionHeader('TRANSACTION & ANALYTICS', hidden: collapsed),
 
-                // 1. REPORTS SUBSECTION
                 NavTile(
                   icon: Icons.description_outlined,
                   label: 'Reports',
@@ -382,14 +380,6 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                         isActive: _isActive('report/transaction'),
                         onTap: () => widget.onNav?.call('report/transaction'),
                       ),
-                   /*   NavTile(
-                        icon: Icons.business,
-                        label: 'Business Report',
-                        collapsed: collapsed,
-                        isChild: true,
-                        isActive: _isActive('report/business'),
-                        onTap: () => widget.onNav?.call('report/business'),
-                      ), */
                       NavTile(
                         icon: Icons.event_note,
                         label: 'Booking Report',
@@ -410,7 +400,6 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                   ),
                 ),
 
-                // 2. ANALYTICS SUBSECTION
                 NavTile(
                   icon: Icons.analytics_outlined,
                   label: 'Analytics',
@@ -443,11 +432,153 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                     ],
                   ),
                 ),
+
                 // ============================================================
-                // END TRANSACTION REPORTS & ANALYTICS
+                // NEW: PROMOTION MANAGEMENT (RESTRUCTURED)
                 // ============================================================
+                SectionHeader('PROMOTION MANAGEMENT', hidden: collapsed),
+
+                // 1. Promotion Banners (Separate, Top-Level)
+                NavTile(
+                  icon: Icons.image_outlined,
+                  label: 'Promotion Banners',
+                  collapsed: collapsed,
+                  isActive: _isActive('promotion/banner'),
+                  onTap: () => widget.onNav?.call('promotion/banner'),
+                ),
+
+                // 2. Discounts (Expandable Group)
+                NavTile(
+                  icon: Icons.local_offer_outlined,
+                  label: 'Discounts',
+                  collapsed: collapsed,
+                  isActive: _isActive('promotion/discount'),
+                  trailing: collapsed
+                      ? null
+                      : Icon(
+                          _discountsOpen ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_right_rounded,
+                          size: 20,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                  onTap: () => setState(() => _discountsOpen = !_discountsOpen),
+                ),
+                
+                AnimatedCrossFade(
+                  duration: const Duration(milliseconds: 200),
+                  crossFadeState: _discountsOpen && !collapsed ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                  firstChild: const SizedBox.shrink(),
+                  secondChild: Column(
+                    children: [
+                      NavTile(
+                        icon: Icons.list_alt,
+                        label: 'Discount List',
+                        collapsed: collapsed,
+                        isChild: true,
+                        isActive: _isActive('promotion/discount/list'),
+                        onTap: () => widget.onNav?.call('promotion/discount/list'),
+                      ),
+                      NavTile(
+                        icon: Icons.add_circle_outline,
+                        label: 'Add New Discount',
+                        collapsed: collapsed,
+                        isChild: true,
+                        isActive: _isActive('promotion/discount/add'),
+                        onTap: () => widget.onNav?.call('promotion/discount/add'),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 3. Coupons (Expandable Group)
+                NavTile(
+                  icon: Icons.confirmation_number_outlined,
+                  label: 'Coupons',
+                  collapsed: collapsed,
+                  isActive: _isActive('promotion/coupon'),
+                  trailing: collapsed
+                      ? null
+                      : Icon(
+                          _couponsOpen ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_right_rounded,
+                          size: 20,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                  onTap: () => setState(() => _couponsOpen = !_couponsOpen),
+                ),
+
+                AnimatedCrossFade(
+                  duration: const Duration(milliseconds: 200),
+                  crossFadeState: _couponsOpen && !collapsed ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                  firstChild: const SizedBox.shrink(),
+                  secondChild: Column(
+                    children: [
+                      NavTile(
+                        icon: Icons.list_alt,
+                        label: 'Coupon List',
+                        collapsed: collapsed,
+                        isChild: true,
+                        isActive: _isActive('promotion/coupon/list'),
+                        onTap: () => widget.onNav?.call('promotion/coupon/list'),
+                      ),
+                      NavTile(
+                        icon: Icons.add_card_outlined,
+                        label: 'Add New Coupon',
+                        collapsed: collapsed,
+                        isChild: true,
+                        isActive: _isActive('promotion/coupon/add'),
+                        onTap: () => widget.onNav?.call('promotion/coupon/add'),
+                      ),
+                    ],
+                  ),
+                ),
+
                 // ============================================================
-                // NEW: EMPLOYEE MANAGEMENT SECTION
+                // NOTIFICATION MANAGEMENT
+                // ============================================================
+                SectionHeader('NOTIFICATION MANAGEMENT', hidden: collapsed),
+
+                NavTile(
+                  icon: Icons.notifications_active_outlined,
+                  label: 'Notifications',
+                  collapsed: collapsed,
+                  isActive: _isActive('notification/'),
+                  trailing: collapsed
+                      ? null
+                      : Icon(
+                          _notificationsOpen ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_right_rounded,
+                          size: 20,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                  onTap: () => setState(() => _notificationsOpen = !_notificationsOpen),
+                ),
+
+                AnimatedCrossFade(
+                  duration: const Duration(milliseconds: 200),
+                  crossFadeState: _notificationsOpen && !collapsed ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                  firstChild: const SizedBox.shrink(),
+                  secondChild: Column(
+                    children: [
+                      NavTile(
+                        icon: Icons.send_rounded,
+                        label: 'Send Notification',
+                        collapsed: collapsed,
+                        isChild: true,
+                        isActive: _isActive('notification/send'),
+                        onTap: () => widget.onNav?.call('notification/send'),
+                      ),
+                      NavTile(
+                        icon: Icons.tap_and_play,
+                        label: 'Push Notifications',
+                        collapsed: collapsed,
+                        isChild: true,
+                        isActive: _isActive('notification/push'),
+                        onTap: () => widget.onNav?.call('notification/push'),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ============================================================
+                // EMPLOYEE MANAGEMENT SECTION
                 // ============================================================
                 SectionHeader('EMPLOYEE MANAGEMENT', hidden: collapsed),
 
