@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 class CouponListScreen extends StatefulWidget {
-  const CouponListScreen({super.key});
+  final Function()? onEditCoupon;
+
+  const CouponListScreen({super.key, this.onEditCoupon});
 
   @override
   State<CouponListScreen> createState() => _CouponListScreenState();
@@ -330,8 +332,11 @@ class _CouponListScreenState extends State<CouponListScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                _buildActionIcon(Icons.edit_outlined, const Color(0xFFEB5725)),
-                const SizedBox(width: 8),
+// Inside _buildRow method
+InkWell(
+  onTap: widget.onEditCoupon, // Trigger the callback
+  child: _buildActionIcon(Icons.edit_outlined, const Color(0xFFEB5725)),
+),                const SizedBox(width: 8),
                 _buildActionIcon(Icons.delete_outline, const Color(0xFFEF4444)),
               ],
             ),

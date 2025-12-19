@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 class DiscountListScreen extends StatefulWidget {
-  const DiscountListScreen({super.key});
+  final VoidCallback? onEditDiscount;
+  const DiscountListScreen({super.key, this.onEditDiscount});
 
   @override
   State<DiscountListScreen> createState() => _DiscountListScreenState();
@@ -300,8 +301,10 @@ class _DiscountListScreenState extends State<DiscountListScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                _buildActionIcon(Icons.edit_outlined, const Color(0xFFEB5725)),
-                const SizedBox(width: 8),
+InkWell(
+                  onTap: widget.onEditDiscount, 
+                  child: _buildActionIcon(Icons.edit_outlined, const Color(0xFFEB5725)),
+                ),                const SizedBox(width: 8),
                 _buildActionIcon(Icons.delete_outline, const Color(0xFFEF4444)), // Red color for delete
               ],
             ),

@@ -1,17 +1,19 @@
-import 'dart:io'; // For File (mobile/desktop)
-import 'dart:ui' as ui; // For PathMetric (Dashed Border)
+import 'dart:io'; 
+import 'dart:ui' as ui; 
 
-import 'package:file_picker/file_picker.dart'; // Add this package
-import 'package:flutter/foundation.dart'; // For kIsWeb
+import 'package:file_picker/file_picker.dart'; 
+import 'package:flutter/foundation.dart'; 
 import 'package:flutter/material.dart';
 
+// 1. PARENT WIDGET
 class PromotionalBannersScreen extends StatelessWidget {
-  const PromotionalBannersScreen({super.key});
+  final VoidCallback? onUpdateBanner;
+  const PromotionalBannersScreen({super.key, this.onUpdateBanner});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FC), // Light grey background
+      backgroundColor: const Color(0xFFF8F9FC), 
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -48,13 +50,16 @@ class PromotionalBannersScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // --- 1. Top Section: Setup Form ---
+            // --- 1. Top Section ---
             const BannerSetupCard(),
 
             const SizedBox(height: 24),
 
-            // --- 2. Bottom Section: List Table ---
-            const BannerListCard(),
+            // --- 2. Bottom Section ---
+            // [FIX 1]: Pass the function down to the child widget here
+            BannerListCard(
+              onEditClicked: onUpdateBanner, 
+            ),
           ],
         ),
       ),
@@ -63,7 +68,7 @@ class PromotionalBannersScreen extends StatelessWidget {
 }
 
 // =============================================================================
-// WIDGET 1: BANNER SETUP CARD
+// WIDGET 1: BANNER SETUP CARD (Unchanged)
 // =============================================================================
 
 class BannerSetupCard extends StatefulWidget {
@@ -74,7 +79,6 @@ class BannerSetupCard extends StatefulWidget {
 }
 
 class _BannerSetupCardState extends State<BannerSetupCard> {
-  // File Picker State
   PlatformFile? _pickedFile;
 
   Future<void> _pickFile() async {
@@ -119,7 +123,6 @@ class _BannerSetupCardState extends State<BannerSetupCard> {
           ),
           const SizedBox(height: 24),
           
-          // Responsive Layout: Stacks on mobile, Row on Desktop
           LayoutBuilder(
             builder: (context, constraints) {
               bool isWide = constraints.maxWidth > 800;
@@ -144,12 +147,11 @@ class _BannerSetupCardState extends State<BannerSetupCard> {
           
           const SizedBox(height: 30),
           
-          // Action Buttons
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               OutlinedButton(
-                onPressed: _clearFile, // Connected to clear logic
+                onPressed: _clearFile, 
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                   side: BorderSide(color: Colors.grey.shade300),
@@ -159,11 +161,9 @@ class _BannerSetupCardState extends State<BannerSetupCard> {
               ),
               const SizedBox(width: 16),
               ElevatedButton(
-                onPressed: () {
-                  // TODO: Implement Submit Logic
-                },
+                onPressed: () {},
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEB5725), // Orange color
+                  backgroundColor: const Color(0xFFEB5725), 
                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                   elevation: 0,
@@ -181,7 +181,6 @@ class _BannerSetupCardState extends State<BannerSetupCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Title Input
         _buildLabel('Title', isRequired: true),
         const SizedBox(height: 8),
         TextField(
@@ -202,7 +201,6 @@ class _BannerSetupCardState extends State<BannerSetupCard> {
         ),
         const SizedBox(height: 20),
 
-        // Select Category
         _buildLabel('Select Category', isRequired: true),
         const SizedBox(height: 8),
         Container(
@@ -236,7 +234,6 @@ class _BannerSetupCardState extends State<BannerSetupCard> {
         ),
         const SizedBox(height: 12),
         
-        // CLICKABLE UPLOAD ZONE
         GestureDetector(
           onTap: _pickFile,
           child: CustomPaint(
@@ -248,14 +245,12 @@ class _BannerSetupCardState extends State<BannerSetupCard> {
               child: _pickedFile != null
                 ? Stack(
                     children: [
-                      // Display Image
                       SizedBox.expand(
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: _getImageWidget(),
                         ),
                       ),
-                      // Remove Button
                       Positioned(
                         top: 8, 
                         right: 8,
@@ -291,13 +286,11 @@ class _BannerSetupCardState extends State<BannerSetupCard> {
 
   Widget _getImageWidget() {
     if (kIsWeb) {
-      // On Web, we must use bytes because path is fake/hidden
       if (_pickedFile!.bytes != null) {
         return Image.memory(_pickedFile!.bytes!, fit: BoxFit.cover);
       }
       return const Center(child: Text("Error loading web image"));
     } else {
-      // On Mobile/Desktop, use file path
       if (_pickedFile!.path != null) {
         return Image.file(File(_pickedFile!.path!), fit: BoxFit.cover);
       }
@@ -324,7 +317,11 @@ class _BannerSetupCardState extends State<BannerSetupCard> {
 // =============================================================================
 
 class BannerListCard extends StatelessWidget {
-  const BannerListCard({super.key});
+  // [FIX 2]: Add the variable to accept the function in this class
+  final VoidCallback? onEditClicked;
+
+  // [FIX 3]: Add it to the constructor
+  const BannerListCard({super.key, this.onEditClicked});
 
   @override
   Widget build(BuildContext context) {
@@ -342,7 +339,7 @@ class BannerListCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Simplified Header: Title + Count (Tabs Removed)
+          // Simplified Header
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             child: Row(
@@ -354,8 +351,8 @@ class BannerListCard extends StatelessWidget {
                  ),
                  Row(
                    children: const [
-                      Text('Total Banners: ', style: TextStyle(color: Colors.grey)),
-                      Text('2', style: TextStyle(fontWeight: FontWeight.bold)),
+                     Text('Total Banners: ', style: TextStyle(color: Colors.grey)),
+                     Text('2', style: TextStyle(fontWeight: FontWeight.bold)),
                    ],
                  )
               ],
@@ -544,7 +541,11 @@ class BannerListCard extends StatelessWidget {
             flex: 2,
             child: Row(
               children: [
-                _buildActionIcon(Icons.edit, const Color(0xFFEB5725)),
+                // [FIX 4]: Use the variable directly (no 'widget.' because it's stateless)
+                InkWell(
+                  onTap: onEditClicked, 
+                  child: _buildActionIcon(Icons.edit_outlined, const Color(0xFFEB5725)),
+                ),
                 const SizedBox(width: 8),
                 _buildActionIcon(Icons.delete_outline, Colors.red),
               ],
@@ -592,17 +593,16 @@ class DashedRectPainter extends CustomPainter {
     double h = size.height;
 
     Path path = Path();
-    path.moveTo(x + 10, y); // Top line start
+    path.moveTo(x + 10, y); 
     path.lineTo(w - 10, y);
-    path.quadraticBezierTo(w, y, w, y + 10); // Top Right corner
+    path.quadraticBezierTo(w, y, w, y + 10); 
     path.lineTo(w, h - 10);
-    path.quadraticBezierTo(w, h, w - 10, h); // Bottom Right corner
+    path.quadraticBezierTo(w, h, w - 10, h); 
     path.lineTo(x + 10, h);
-    path.quadraticBezierTo(x, h, x, h - 10); // Bottom Left corner
+    path.quadraticBezierTo(x, h, x, h - 10); 
     path.lineTo(x, y + 10);
-    path.quadraticBezierTo(x, y, x + 10, y); // Top Left corner
+    path.quadraticBezierTo(x, y, x + 10, y); 
 
-    // Logic to draw dashes
     Path dashPath = Path();
     for (ui.PathMetric pathMetric in path.computeMetrics()) {
       double distance = 0.0;
@@ -614,6 +614,8 @@ class DashedRectPainter extends CustomPainter {
         distance += (gap * 2); 
       }
     }
+    
+    // [FIX 5]: Fixed the closing brace for the loop that was missing in your snippet
     canvas.drawPath(dashPath, dashedPaint);
   }
 

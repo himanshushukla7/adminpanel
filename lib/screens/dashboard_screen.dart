@@ -6,6 +6,7 @@ import 'employee_role_list_screen.dart';
 import 'add_employee_screen.dart';
 import 'send_notification_screen.dart';
 import 'promotional_banners_screen.dart';
+import 'update_discount_screen.dart';
 // --- WIDGET IMPORTS ---
 import '../widgets/dashboard_sidebar.dart';
 import '../widgets/dashboard_topbar.dart';
@@ -34,6 +35,8 @@ import 'discount_list_screen.dart';
 import 'discount_add_screen.dart';
 import 'coupon_list_screen.dart';
 import 'add_coupon_screen.dart';
+import 'update_coupon_screen.dart';
+import 'update_promotional_banner_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -185,13 +188,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 'employee/add':  
         return const AddEmployeeScreen();
       case 'promotion/banner':  
-        return const PromotionalBannersScreen();
+        return  PromotionalBannersScreen(
+          onUpdateBanner: () {
+            setState(() {
+              _currentRoute = 'promotion/banner/update';
+            });
+          },
+        );
+      case 'promotion/banner/update':
+        return const UpdatePromotionalBannerScreen();  
       case 'promotion/discount/list':
-        return const DiscountListScreen();
+      return DiscountListScreen(
+        // Pass the function to switch route on edit click
+        onEditDiscount: () {
+          setState(() {
+            _currentRoute = 'promotion/discount/update';
+          });
+        },
+      );
+
+    // NEW CASE: Logic to show the Update Discount Screen
+    case 'promotion/discount/update':
+      return const UpdateDiscountScreen(); // Ensure you import this class
       case 'promotion/discount/add':
         return const AddDiscountScreen();
       case 'promotion/coupon/list':
-        return const CouponListScreen();
+        return  CouponListScreen(
+          onEditCoupon: () {
+          setState(() {
+            _currentRoute = 'promotion/coupon/update';
+          });
+        },
+        );
+      case 'promotion/coupon/update':
+        return const UpdateCouponScreen();
       case 'promotion/coupon/add':
         return const AddCouponScreen();
       case 'notification/send':
