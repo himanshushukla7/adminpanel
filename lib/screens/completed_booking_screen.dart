@@ -1,5 +1,11 @@
-import 'package:flutter/material.dart';
+import 'dart:ui'; // Required for PointerDeviceKind
+import 'package:flutter/material.dart' as material; // 1. ALIASED IMPORT TO FIX COLLISION
+import 'package:flutter/material.dart'; // Keep standard import for other widgets
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+
+import '../models/booking_models.dart';
+import '../repositories/booking_repository.dart';
 
 class CompletedBookingScreen extends StatefulWidget {
   final Function(String) onViewDetails;
@@ -12,37 +18,83 @@ class CompletedBookingScreen extends StatefulWidget {
 
 class _CompletedBookingScreenState extends State<CompletedBookingScreen> {
   // 1. STATE VARIABLES
+  final BookingRepository _repo = BookingRepository();
   final TextEditingController _searchController = TextEditingController();
-  String _filterStatus = 'All'; 
-  List<CompletedBookingModel> _displayedData = [];
+  final ScrollController _horizontalScrollController = ScrollController();
+  final ScrollController _verticalScrollController = ScrollController();
+
+  List<BookingModel> _bookings = [];
+  List<BookingModel> _displayedData = []; 
+  bool _isLoading = true;
+  String _errorMessage = '';
+
+  // Pagination State
+  int _currentPage = 0;
+  int _pageSize = 10;
+  int _totalPages = 1;
+  int _totalElements = 0;
 
   @override
   void initState() {
     super.initState();
-    _displayedData = List.from(_completedDummyData);
+    _fetchData();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _horizontalScrollController.dispose();
+    _verticalScrollController.dispose();
     super.dispose();
   }
 
-  // 2. SEARCH LOGIC
+  // 2. API FETCH
+  Future<void> _fetchData() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      final response = await _repo.fetchBookings(page: _currentPage, size: _pageSize);
+      
+      // FILTER: Only show 'Completed' bookings
+      final completedList = response.content.where((b) {
+        return b.status.toLowerCase() == 'completed';
+      }).toList();
+
+      if (!mounted) return;
+      setState(() {
+        _bookings = completedList;
+        _displayedData = completedList;
+        _totalPages = response.totalPages;
+        _totalElements = response.totalElements; 
+        _isLoading = false;
+      });
+      
+      if (_searchController.text.isNotEmpty) {
+        _runFilter();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = "Could not load data.";
+      });
+      print("Error loading completed bookings: $e");
+    }
+  }
+
+  // 3. SEARCH LOGIC
   void _runFilter() {
-    List<CompletedBookingModel> results = [];
+    List<BookingModel> results = [];
     String keyword = _searchController.text.toLowerCase();
 
-    results = _completedDummyData.where((item) {
-      final matchesKeyword = item.bookingId.toLowerCase().contains(keyword) ||
+    results = _bookings.where((item) {
+      return item.bookingRef.toLowerCase().contains(keyword) ||
           item.customerName.toLowerCase().contains(keyword) ||
-          item.providerName.toLowerCase().contains(keyword);
-      
-      bool matchesStatus = true;
-      if (_filterStatus == 'Paid') matchesStatus = item.paymentStatus == 'Paid';
-      if (_filterStatus == 'Unpaid') matchesStatus = item.paymentStatus == 'Unpaid';
-
-      return matchesKeyword && matchesStatus;
+          (item.provider?.firstName ?? '').toLowerCase().contains(keyword);
     }).toList();
 
     setState(() {
@@ -50,7 +102,17 @@ class _CompletedBookingScreenState extends State<CompletedBookingScreen> {
     });
   }
 
-  // 3. DOWNLOAD FUNCTION
+  // 4. PAGINATION LOGIC
+  void _onPageChanged(int newPage) {
+    if (newPage >= 0 && newPage < _totalPages) {
+      setState(() {
+        _currentPage = newPage;
+      });
+      _fetchData();
+    }
+  }
+
+  // 5. DOWNLOAD FUNCTION
   void _handleDownload() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -61,42 +123,21 @@ class _CompletedBookingScreenState extends State<CompletedBookingScreen> {
             Text("Downloaded ${_displayedData.length} completed records!"),
           ],
         ),
-        backgroundColor: const Color(0xFF22C55E), // Green for success
+        backgroundColor: const Color(0xFF22C55E),
         behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
-  // 4. FILTER DIALOG
-  void _showFilterDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text("Filter by Payment", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildFilterOption(ctx, "All", 'All'),
-            _buildFilterOption(ctx, "Paid Only", 'Paid'),
-            _buildFilterOption(ctx, "Unpaid Only", 'Unpaid'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterOption(BuildContext ctx, String label, String value) {
-    return RadioListTile<String>(
-      title: Text(label, style: GoogleFonts.inter()),
-      value: value,
-      groupValue: _filterStatus,
-      activeColor: const Color(0xFFEF7822),
-      onChanged: (val) {
-        setState(() => _filterStatus = val!);
-        _runFilter();
-        Navigator.pop(ctx);
-      },
-    );
+  // 6. HELPER: Format Date
+  String _formatDate(String isoDate) {
+    if (isoDate.isEmpty) return "N/A";
+    try {
+      final dt = DateTime.parse(isoDate);
+      return DateFormat('dd MMM yyyy').format(dt);
+    } catch (e) {
+      return isoDate.split('T')[0];
+    }
   }
 
   @override
@@ -110,7 +151,7 @@ class _CompletedBookingScreenState extends State<CompletedBookingScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
                Text(
-                "Completed",
+                "Completed Bookings",
                 style: GoogleFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -156,7 +197,7 @@ class _CompletedBookingScreenState extends State<CompletedBookingScreen> {
             ),
             child: Column(
               children: [
-                // TOOLBAR
+                // --- A. TOOLBAR ---
                 Padding(
                   padding: const EdgeInsets.all(20),
                   child: Row(
@@ -186,17 +227,11 @@ class _CompletedBookingScreenState extends State<CompletedBookingScreen> {
                       ),
                       const Spacer(),
                       
-                      // Filter Button
-                      OutlinedButton.icon(
-                        onPressed: _showFilterDialog,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          side: BorderSide(color: _filterStatus == 'All' ? const Color(0xFFE2E8F0) : const Color(0xFFEF7822)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          foregroundColor: const Color(0xFF475569),
-                        ),
-                        icon: Icon(Icons.filter_list, size: 18, color: _filterStatus == 'All' ? null : const Color(0xFFEF7822)),
-                        label: Text("Filter", style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                      // Refresh Button
+                      IconButton(
+                        onPressed: _fetchData, 
+                        icon: const Icon(Icons.refresh, color: Color(0xFF64748B)),
+                        tooltip: "Refresh Data",
                       ),
                       
                       const SizedBox(width: 12),
@@ -217,106 +252,212 @@ class _CompletedBookingScreenState extends State<CompletedBookingScreen> {
                   ),
                 ),
 
-                const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                // 2. USE MATERIAL.DIVIDER TO FIX CONFLICT
+                const material.Divider(height: 1, color: Color(0xFFF1F5F9)),
 
-                // TABLE
+                // --- B. CONTENT AREA ---
                 Expanded(
-                  child: _displayedData.isEmpty 
-                  ? Center(child: Text("No completed bookings found", style: GoogleFonts.inter(color: Colors.grey)))
-                  : SingleChildScrollView(
-                    padding: EdgeInsets.zero, 
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width - 300), 
-                        child: DataTable(
-                          headingRowColor: MaterialStateProperty.all(Colors.transparent),
-                          dataRowMinHeight: 70,
-                          dataRowMaxHeight: 85,
-                          horizontalMargin: 20,
-                          columnSpacing: 24,
-                          dividerThickness: 1,
-                          columns: const [
-                            DataColumn(label: _Header("SL")),
-                            DataColumn(label: _Header("BOOKING\nID")),
-                            DataColumn(label: _Header("BOOKING\nDATE")),
-                            DataColumn(label: _Header("SERVICE\nLOCATION")),
-                            DataColumn(label: _Header("SCHEDULE\nDATE")),
-                            DataColumn(label: _Header("CUSTOMER INFO")),
-                            DataColumn(label: _Header("PROVIDER INFO")),
-                            DataColumn(label: _Header("TOTAL\nAMOUNT")),
-                            DataColumn(label: _Header("PAYMENT\nSTATUS")),
-                            DataColumn(label: _Header("ACTION")),
-                          ],
-                          rows: _displayedData.map((data) => DataRow(
-                            cells: [
-                              DataCell(Text(data.sl, style: _cellStyle())),
-                              DataCell(Text(data.bookingId, style: _cellStyle())),
-                              DataCell(Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(data.bookingDate, style: _cellStyle(bold: true)),
-                                  Text(data.bookingTime, style: _subStyle()),
-                                ],
-                              )),
-                              DataCell(Text(data.location, style: _cellStyle())),
-                              DataCell(Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(data.scheduleDate, style: _cellStyle(bold: true)),
-                                  Text(data.scheduleTime, style: _subStyle()),
-                                ],
-                              )),
-                              DataCell(Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(data.customerName, style: _cellStyle(bold: true)),
-                                  Text(data.customerPhone, style: _subStyle()),
-                                ],
-                              )),
-                              DataCell(
-                                Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(data.providerName, style: _cellStyle(bold: true)),
-                                    if(data.providerCompany.isNotEmpty) Text(data.providerCompany, style: _cellStyle(size: 11)),
-                                    Text(data.providerPhone, style: _subStyle()),
-                                  ],
-                                )
+                  child: _isLoading 
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFFEF7822)))
+                  : _displayedData.isEmpty 
+                    ? _buildEmptyState()
+                    : ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(context).copyWith(
+                          dragDevices: { PointerDeviceKind.touch, PointerDeviceKind.mouse },
+                        ),
+                        child: Scrollbar(
+                          controller: _verticalScrollController,
+                          thumbVisibility: true,
+                          child: SingleChildScrollView(
+                            controller: _verticalScrollController,
+                            scrollDirection: Axis.vertical,
+                            child: Scrollbar(
+                              controller: _horizontalScrollController,
+                              thumbVisibility: true,
+                              notificationPredicate: (notif) => notif.depth == 1,
+                              child: SingleChildScrollView(
+                                controller: _horizontalScrollController,
+                                scrollDirection: Axis.horizontal,
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width - 300), 
+                                  child: DataTable(
+                                    headingRowColor: MaterialStateProperty.all(Colors.transparent),
+                                    dataRowMinHeight: 70,
+                                    dataRowMaxHeight: 85,
+                                    horizontalMargin: 20,
+                                    columnSpacing: 24,
+                                    dividerThickness: 1,
+                                    columns: const [
+                                      DataColumn(label: _Header("SL")),
+                                      DataColumn(label: _Header("BOOKING\nID")),
+                                      DataColumn(label: _Header("SERVICE\nNAME")),
+                                      DataColumn(label: _Header("COMPLETED\nDATE")),
+                                      DataColumn(label: _Header("CUSTOMER\nDETAILS")),
+                                      DataColumn(label: _Header("PROVIDER\nDETAILS")),
+                                      DataColumn(label: _Header("TOTAL\nAMOUNT")),
+                                      DataColumn(label: _Header("PAYMENT\nSTATUS")),
+                                      DataColumn(label: _Header("ACTION")),
+                                    ],
+                                    rows: List.generate(_displayedData.length, (index) {
+                                      final data = _displayedData[index];
+                                      final serialNum = ((_currentPage) * _pageSize) + index + 1;
+
+                                      return DataRow(
+                                        cells: [
+                                          DataCell(Text("$serialNum", style: _cellStyle())),
+                                          DataCell(Text(data.bookingRef, style: _cellStyle(bold: true))),
+                                          DataCell(Text(data.mainServiceName, style: _cellStyle(bold: true))),
+                                          DataCell(Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(_formatDate(data.bookingDate), style: _cellStyle()),
+                                              Text(data.bookingTime, style: _subStyle()),
+                                            ],
+                                          )),
+                                          DataCell(Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(data.customerName, style: _cellStyle(bold: true)),
+                                              Text(data.address?.city ?? "Unknown", style: _subStyle()),
+                                            ],
+                                          )),
+                                          DataCell(data.provider != null 
+                                            ? Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text("${data.provider!.firstName} ${data.provider!.lastName}", style: _cellStyle(bold: true)),
+                                                  Text(data.provider!.mobile, style: _subStyle()),
+                                                ],
+                                              )
+                                            : Text("Unassigned", style: GoogleFonts.inter(fontSize: 13, color: Colors.redAccent, fontWeight: FontWeight.w500))),
+                                          DataCell(Text("₹${data.totalAmount}", style: _cellStyle(bold: true))),
+                                          DataCell(_StatusBadge(status: data.paymentStatus)),
+                                          DataCell(_ActionButton(
+                                            icon: Icons.visibility_outlined, 
+                                            onTap: () => widget.onViewDetails(data.id),
+                                          )),
+                                        ],
+                                      );
+                                    }),
+                                  ),
+                                ),
                               ),
-                              DataCell(Text(data.amount, style: _cellStyle(bold: true))),
-                              // STATUS BADGE (Green for Paid)
-                              DataCell(_StatusBadge(status: data.paymentStatus)),
-                              DataCell(Row(
-                                children: [
-// New code passes the specific ID back to the dashboard
-_ActionButton(
-  icon: Icons.visibility_outlined, 
-  onTap: () {
-    // 3. CALL THE FUNCTION WITH THE BOOKING ID
-   widget.onViewDetails(data.bookingId);
-   // onViewDetails(data.bookingId); 
-  }
-),                                  const SizedBox(width: 8),
-                                  _ActionButton(icon: Icons.download_outlined, onTap: () {}),
-                                ],
-                              )),
-                            ],
-                          )).toList(),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
                 ),
-              ],
-            ),
-          ),
-        ),
+
+                const material.Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+                // --- C. PAGINATION FOOTER (ALWAYS VISIBLE) ---
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      OutlinedButton(
+                        onPressed: _currentPage > 0 ? () => _onPageChanged(_currentPage - 1) : null, 
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF64748B),
+                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                        child: const Text('Previous'),
+                      ),
+
+                      Expanded(
+                        child: Container(
+                          height: 32,
+                          alignment: Alignment.center,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: _totalPages,
+                            separatorBuilder: (_, __) => const SizedBox(width: 8),
+                            itemBuilder: (context, index) {
+                              final isSelected = index == _currentPage;
+                              return InkWell(
+                                onTap: () => _onPageChanged(index),
+                                borderRadius: BorderRadius.circular(4),
+                                child: Container(
+                                  width: 32,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? const Color(0xFFEF7822) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: isSelected ? null : Border.all(color: const Color(0xFFE2E8F0)),
+                                  ),
+                                  child: Text(
+                                    "${index + 1}",
+                                    style: GoogleFonts.inter(
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                      color: isSelected ? Colors.white : const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+
+                      OutlinedButton(
+                        onPressed: _currentPage < _totalPages - 1 ? () => _onPageChanged(_currentPage + 1) : null,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF64748B),
+                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                        child: const Text('Next'),
+                      ),
+                    ],
+                  ),
+                )
+              ], // End of Column children
+            ), // End of Column
+          ), // End of Container
+        ), // End of Expanded
       ],
+    );
+  }
+
+  // --- NEW PROFESSIONAL EMPTY STATE WIDGET ---
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.task_alt_outlined, size: 48, color: Color(0xFF22C55E)),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "No Completed Bookings",
+            style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF334155)),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "Completed service history will appear here.",
+            style: GoogleFonts.inter(
+                fontSize: 13, color: const Color(0xFF64748B)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -348,7 +489,7 @@ class _StatusBadge extends StatelessWidget {
   const _StatusBadge({required this.status});
   @override
   Widget build(BuildContext context) {
-    final isPaid = status == 'Paid';
+    final isPaid = status.toLowerCase() == 'paid';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -382,104 +523,3 @@ class _ActionButton extends StatelessWidget {
     );
   }
 }
-
-// -----------------------------------------------------------------------------
-// DATA MODEL (Specific to Completed)
-// -----------------------------------------------------------------------------
-class CompletedBookingModel {
-  final String sl, bookingId, bookingDate, bookingTime, location;
-  final String scheduleDate, scheduleTime, customerName, customerPhone;
-  final String providerName, providerCompany, providerPhone, amount;
-  final String paymentStatus;
-
-  CompletedBookingModel({
-    required this.sl, required this.bookingId, required this.bookingDate, 
-    required this.bookingTime, required this.location, required this.scheduleDate, 
-    required this.scheduleTime, required this.customerName, required this.customerPhone,
-    required this.providerName, this.providerCompany = "", required this.providerPhone,
-    required this.amount, required this.paymentStatus,
-  });
-}
-
-final List<CompletedBookingModel> _completedDummyData = [
-  CompletedBookingModel(
-    sl: "1", 
-    bookingId: "100131", 
-    bookingDate: "25-Aug-2025", 
-    bookingTime: "11:27am", 
-    location: "Customer Home (Gomti Nagar)", 
-    scheduleDate: "25-Aug-2025", 
-    scheduleTime: "11:28am", 
-    customerName: "Vikram Singh", 
-    customerPhone: "+91 98765 43210", 
-    providerName: "Ramesh Gupta", 
-    providerCompany: "Gupta Traders", 
-    providerPhone: "+91 91234 56789", 
-    amount: "₹1,200.00", 
-    paymentStatus: "Paid"
-  ),
-  CompletedBookingModel(
-    sl: "2", 
-    bookingId: "100130", 
-    bookingDate: "25-Aug-2025", 
-    bookingTime: "11:26am", 
-    location: "Customer Home (Indira Nagar)", 
-    scheduleDate: "25-Aug-2025", 
-    scheduleTime: "11:28am", 
-    customerName: "Vikram Singh", 
-    customerPhone: "+91 98765 43210", 
-    providerName: "Suresh Electricals", 
-    providerCompany: "Lucknow Services Pvt Ltd", 
-    providerPhone: "+91 88997 76655", 
-    amount: "₹2,500.00", 
-    paymentStatus: "Paid"
-  ),
-  CompletedBookingModel(
-    sl: "3", 
-    bookingId: "100122", 
-    bookingDate: "22-Apr-2025", 
-    bookingTime: "10:35am", 
-    location: "Customer Home (Aliganj)", 
-    scheduleDate: "22-Apr-2025", 
-    scheduleTime: "10:25am", 
-    customerName: "Priya Sharma", 
-    customerPhone: "+91 76543 21098", 
-    providerName: "Amit Kumar", 
-    providerCompany: "Amit Repairs", 
-    providerPhone: "+91 99880 01122", 
-    amount: "₹850.00", 
-    paymentStatus: "Paid"
-  ),
-  CompletedBookingModel(
-    sl: "4", 
-    bookingId: "100121", 
-    bookingDate: "22-Apr-2025", 
-    bookingTime: "10:32am", 
-    location: "Provider Shop (Aminabad)", 
-    scheduleDate: "22-Apr-2025", 
-    scheduleTime: "10:24am", 
-    customerName: "Priya Sharma", 
-    customerPhone: "+91 76543 21098", 
-    providerName: "Amit Kumar", 
-    providerCompany: "Amit Repairs", 
-    providerPhone: "+91 99880 01122", 
-    amount: "₹1,500.00", 
-    paymentStatus: "Paid"
-  ),
-  CompletedBookingModel(
-    sl: "5", 
-    bookingId: "100119", 
-    bookingDate: "23-Jan-2025", 
-    bookingTime: "06:08pm", 
-    location: "Customer Home (Chowk)", 
-    scheduleDate: "23-Jan-2025", 
-    scheduleTime: "06:10pm", 
-    customerName: "Arjun Verma", 
-    customerPhone: "+91 88776 65544", 
-    providerName: "Amit Kumar", 
-    providerCompany: "Amit Repairs", 
-    providerPhone: "+91 99880 01122", 
-    amount: "₹450.00", 
-    paymentStatus: "Paid"
-  ),
-];

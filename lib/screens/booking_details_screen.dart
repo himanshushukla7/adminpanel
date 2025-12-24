@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart'; 
+
+// --- IMPORTS ---
+import '../models/booking_models.dart';
+import '../repositories/booking_repository.dart';
 
 class BookingDetailsScreen extends StatefulWidget {
-  final String bookingId;
-  final String bookingStatus; // "Canceled", "Completed", "Accepted", "Ongoing"
+  final String bookingId; 
+  final String bookingStatus; 
   final VoidCallback onBack;
 
   const BookingDetailsScreen({
@@ -17,115 +22,195 @@ class BookingDetailsScreen extends StatefulWidget {
 }
 
 class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
-  // State for Tab Switching
+  // 1. STATE VARIABLES
+  final BookingRepository _repo = BookingRepository();
+  BookingModel? _booking;
+  bool _isLoading = true;
+  String _errorMessage = '';
   String _currentTab = "Details"; 
 
-  // Helper to get color based on status
-  Color _getStatusColor() {
-    switch (widget.bookingStatus.toLowerCase()) {
-      case 'canceled': return const Color(0xFFEF4444); // Red
-      case 'completed': return const Color(0xFF10B981); // Green
-      case 'ongoing': return const Color(0xFFEF7822); // Orange
-      case 'accepted': return const Color(0xFF2563EB); // Blue
-      default: return const Color(0xFFEF7822);
+  @override
+  void initState() {
+    super.initState();
+    _fetchBookingDetails();
+  }
+
+  // 2. FETCH SPECIFIC BOOKING (Iterative Search)
+  Future<void> _fetchBookingDetails() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+
+    try {
+      BookingModel? foundBooking;
+      int page = 0;
+      bool hasNext = true;
+
+      // Keep fetching pages until found or no more pages
+      while (hasNext && foundBooking == null) {
+        final response = await _repo.fetchBookings(page: page, size: 10); // Fetch bigger chunks
+        
+        try {
+          foundBooking = response.content.firstWhere((b) => b.id == widget.bookingId);
+        } catch (e) {
+          // Not found on this page
+        }
+
+        if (foundBooking != null) break;
+
+        // Prepare for next iteration
+        if (response.content.isEmpty || page >= response.totalPages) {
+          hasNext = false;
+        } else {
+          page++;
+        }
+      }
+
+      if (!mounted) return;
+
+      if (foundBooking != null) {
+        setState(() {
+          _booking = foundBooking;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = "Booking ID not found in database.";
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = "Connection error. Please try again.";
+      });
+      print("Error details: $e");
     }
+  }
+
+  // Helper: Status Color
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'canceled': 
+      case 'cancelled': return const Color(0xFFEF4444); // Red
+      case 'completed': return const Color(0xFF10B981); // Green
+      case 'ongoing': 
+      case 'accepted': return const Color(0xFF2563EB); // Blue
+      default: return const Color(0xFFEF7822); // Orange (Pending)
+    }
+  }
+
+  // Helper: Date Format
+  String _formatDate(String isoDate) {
+    if (isoDate.isEmpty || isoDate == 'N/A') return "N/A";
+    try {
+      final dt = DateTime.parse(isoDate);
+      return DateFormat('dd-MMM-yyyy hh:mm a').format(dt);
+    } catch (e) { return isoDate; }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FC),
-      body: SingleChildScrollView(
-        // 1. ADDED PADDING FROM ALL SIDES
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // --- HEADER SECTION ---
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator(color: Color(0xFFEF7822)))
+        : _errorMessage.isNotEmpty
+          ? Center(child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text("Booking Details", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Text("Booking # ${widget.bookingId}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFEF7822))),
-                        const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _getStatusColor().withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
+                const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const SizedBox(height: 16),
+                Text(_errorMessage, style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 10),
+                OutlinedButton(onPressed: widget.onBack, child: const Text("Go Back"))
+              ],
+            ))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // --- HEADER SECTION ---
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("Booking Details", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Text("Booking # ${_booking!.bookingRef}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFEF7822))),
+                              const SizedBox(width: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: _getStatusColor(_booking!.status).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(_booking!.status, style: TextStyle(color: _getStatusColor(_booking!.status), fontSize: 12, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
                           ),
-                          child: Text(widget.bookingStatus, style: TextStyle(color: _getStatusColor(), fontSize: 12, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 5),
+                          Text("Booking Placed : ${_formatDate(_booking!.creationTime)}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                        ],
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () {}, 
+                        icon: const Icon(Icons.description, size: 18),
+                        label: const Text("Invoice"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2563EB),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    const Text("Booking Placed : 23-Jan-2025 02:32am", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                  ],
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {}, 
-                  icon: const Icon(Icons.description, size: 18),
-                  label: const Text("Invoice"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      )
+                    ],
                   ),
-                )
-              ],
-            ),
-            
-            const SizedBox(height: 24),
+                  
+                  const SizedBox(height: 24),
 
-            // --- 2. DYNAMIC TABS ---
-            Row(
-              children: [
-                _buildTabButton("Details"),
-                const SizedBox(width: 20),
-                _buildTabButton("Status"),
-              ],
-            ),
-            const Divider(height: 1, color: Color(0xFFE0E0E0)),
-            const SizedBox(height: 24),
+                  // --- TABS ---
+                  Row(
+                    children: [
+                      _buildTabButton("Details"),
+                      const SizedBox(width: 20),
+                      _buildTabButton("Status"),
+                    ],
+                  ),
+                  const Divider(height: 1, color: Color(0xFFE0E0E0)),
+                  const SizedBox(height: 24),
 
-            // --- 3. DYNAMIC CONTENT BODY ---
-            // If "Details" -> Show Grid/Details
-            // If "Status" -> Show Timeline
-            _currentTab == "Details" 
-              ? _buildDetailsView()
-              : _buildStatusView(), // This is the new timeline view from image 546e92.png
+                  // --- BODY ---
+                  _currentTab == "Details" 
+                    ? _buildDetailsView()
+                    : _buildStatusView(),
 
-            // Back Button at bottom
-            const SizedBox(height: 30),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                onPressed: widget.onBack, 
-                icon: const Icon(Icons.arrow_back), 
-                label: const Text("Back to List")
+                  // Back Button
+                  const SizedBox(height: 30),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: widget.onBack, 
+                      icon: const Icon(Icons.arrow_back), 
+                      label: const Text("Back to List")
+                    ),
+                  ),
+                  const SizedBox(height: 50),
+                ],
               ),
             ),
-            const SizedBox(height: 50),
-          ],
-        ),
-      ),
     );
   }
 
-  // --- TAB BUTTON HELPER ---
   Widget _buildTabButton(String text) {
     bool isActive = _currentTab == text;
     return InkWell(
-      onTap: () {
-        setState(() => _currentTab = text);
-      },
+      onTap: () => setState(() => _currentTab = text),
       child: Container(
         padding: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
@@ -140,7 +225,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     );
   }
 
-  // --- VIEW 1: DETAILS (Existing Layout) ---
+  // --- VIEW 1: DETAILS ---
   Widget _buildDetailsView() {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -166,14 +251,13 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     );
   }
 
-  // --- VIEW 2: STATUS TIMELINE (New from Image) ---
+  // --- VIEW 2: STATUS TIMELINE ---
   Widget _buildStatusView() {
-    // Determine active steps based on bookingStatus
-    int currentStep = 1; 
-    if (widget.bookingStatus == 'Accepted') currentStep = 2;
-    if (widget.bookingStatus == 'Ongoing') currentStep = 2;
-    if (widget.bookingStatus == 'Completed') currentStep = 3;
-    if (widget.bookingStatus == 'Canceled') currentStep = 1; // Or handle as special case
+    int step = 1;
+    String s = _booking!.status.toLowerCase();
+    if (s.contains('accept') || s.contains('ongoing')) step = 2;
+    if (s.contains('complet')) step = 3;
+    bool isCanceled = s.contains('cancel');
 
     return _buildCard(
       title: "Booking Status",
@@ -181,20 +265,22 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
         children: [
           _buildTimelineItem(
             title: "Booking Placed",
-            subtitle: "By Customer\n23-Jan-2025 02:32am",
+            subtitle: "By ${_booking!.customerName}\n${_formatDate(_booking!.creationTime)}",
             isActive: true,
             isLast: false,
           ),
           _buildTimelineItem(
-            title: "Accepted",
-            subtitle: "By Provider\n23-Jan-2025 09:15am",
-            isActive: currentStep >= 2,
+            title: isCanceled ? "Canceled" : "Accepted / Ongoing",
+            subtitle: isCanceled ? "Booking was canceled" : "Provider Assigned",
+            isActive: isCanceled || step >= 2,
             isLast: false,
+            overrideColor: isCanceled ? Colors.red : null,
+            overrideIcon: isCanceled ? Icons.close : null,
           ),
           _buildTimelineItem(
             title: "Completed",
-            subtitle: widget.bookingStatus == 'Completed' ? "Service Done" : "Pending",
-            isActive: currentStep >= 3,
+            subtitle: "Service Done",
+            isActive: !isCanceled && step >= 3,
             isLast: true,
           ),
         ],
@@ -202,8 +288,11 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     );
   }
 
-  // --- TIMELINE ITEM HELPER ---
-  Widget _buildTimelineItem({required String title, required String subtitle, required bool isActive, required bool isLast}) {
+  Widget _buildTimelineItem({
+    required String title, required String subtitle, required bool isActive, required bool isLast,
+    Color? overrideColor, IconData? overrideIcon
+  }) {
+    final color = overrideColor ?? (isActive ? const Color(0xFFEF7822) : Colors.grey[200]);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -212,16 +301,15 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             Container(
               width: 24, height: 24,
               decoration: BoxDecoration(
-                color: isActive ? const Color(0xFFEF7822) : Colors.grey[200],
+                color: color,
                 shape: BoxShape.circle,
               ),
-              child: isActive ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
+              child: isActive ? Icon(overrideIcon ?? Icons.check, size: 16, color: Colors.white) : null,
             ),
             if (!isLast)
               Container(
-                width: 2,
-                height: 50,
-                color: isActive ? const Color(0xFFEF7822).withOpacity(0.5) : Colors.grey[200],
+                width: 2, height: 50,
+                color: isActive ? (overrideColor ?? const Color(0xFFEF7822)).withOpacity(0.5) : Colors.grey[200],
               )
           ],
         ),
@@ -239,7 +327,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     );
   }
 
-  // --- EXISTING DETAIL WIDGETS ---
+  // --- COLUMNS ---
 
   Widget _buildLeftColumn() {
     return Column(
@@ -250,12 +338,12 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text("Payment Method", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  SizedBox(height: 8),
-                  Text("Cash After Service", style: TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.w600)),
-                  SizedBox(height: 8),
-                  Text("Amount : ₹26,520.00", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                children: [
+                  const Text("Payment Method", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  Text(_booking!.paymentMode, style: const TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Text("Amount : ₹${_booking!.totalAmount}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 ],
               ),
               Column(
@@ -266,31 +354,68 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                       const Text("Payment Status : ", style: TextStyle(color: Colors.grey)),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(4)),
-                        child: const Text("Unpaid", style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                        decoration: BoxDecoration(
+                          color: _booking!.paymentStatus.toLowerCase() == 'paid' ? Colors.green[50] : Colors.red[50], 
+                          borderRadius: BorderRadius.circular(4)
+                        ),
+                        child: Text(
+                          _booking!.paymentStatus, 
+                          style: TextStyle(
+                            color: _booking!.paymentStatus.toLowerCase() == 'paid' ? Colors.green : Colors.red, 
+                            fontSize: 12, fontWeight: FontWeight.bold
+                          )
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  const Text("Booking Otp :", style: TextStyle(color: Colors.grey)),
+                  
+                  // --- DYNAMIC BOOKING OTP ---
+                  // Note: Ensure your BookingModel has this field parsed. If not, modify model first.
+                  // Assuming 'bookingPin' is the integer field from JSON.
+                  Row(
+                    children: [
+                      const Text("Booking OTP : ", style: TextStyle(color: Colors.grey)),
+                      // We will need to update the BookingModel to parse 'bookingPin'
+                      // For now, I'll access the map if available or show placeholder
+                      Text(
+                        "${_booking!.bookingPin}", // Updated: Display Dynamic Pin
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)
+                      ),
+                    ],
+                  ),
+                  
                   const SizedBox(height: 8),
-                  const Text("Schedule Date : 22-Jan-2025 10:32pm", style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text("Schedule : ${_formatDate(_booking!.bookingDate)}", style: const TextStyle(fontWeight: FontWeight.bold)),
                 ],
               )
             ],
           ),
         ),
         const SizedBox(height: 24),
+        
+        // --- SERVICES SUMMARY ---
         _buildCard(
           title: "Booking Summary",
           child: Column(
             children: [
               _buildSummaryHeader(),
               const Divider(),
-              _buildSummaryRow("Sofa Cleaning", "7-Seat-Sofa-Cleaning", "₹1,800.00", "2", "₹100.00", "₹340.00", "₹3,840.00"),
-              _buildSummaryRow("Deep Cleaning", "5-Seat-Sofa-Cleaning", "₹1,400.00", "5", "₹100.00", "₹650.00", "₹7,550.00"),
+              if (_booking!.services.isEmpty)
+                 const Padding(padding: EdgeInsets.all(8.0), child: Text("No services listed")),
+              
+              ..._booking!.services.map((s) => _buildSummaryRow(
+                s.serviceName, 
+                "Standard Service", 
+                "₹${s.price}", 
+                "1", 
+                "₹0", 
+                "₹0", 
+                "₹${s.price}"
+              )),
+              
               const Divider(),
-              _buildTotalRow("Grand Total", "₹26,520.00", isBold: true, color: const Color(0xFF2563EB)),
+              _buildTotalRow("Grand Total", "₹${_booking!.totalAmount}", isBold: true, color: const Color(0xFF2563EB)),
             ],
           ),
         ),
@@ -299,6 +424,11 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   }
 
   Widget _buildRightColumn() {
+    // Determine color based on payment status
+    final isPaid = _booking!.paymentStatus.toLowerCase() == 'paid';
+    final statusColor = isPaid ? Colors.green : Colors.red;
+    final statusBgColor = isPaid ? Colors.green[50] : Colors.red[50];
+
     return Column(
       children: [
         _buildCard(
@@ -310,29 +440,54 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text("Payment Status", style: TextStyle(fontWeight: FontWeight.w500)),
-                  Switch(value: false, onChanged: (v){}), 
+                  
+                  // --- CHANGED: Dynamic Text Container instead of Switch ---
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: statusBgColor,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: statusColor.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      _booking!.paymentStatus, // Dynamic Value: "Paid" or "Unpaid"
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  // ---------------------------------------------------------
                 ],
               ),
               const SizedBox(height: 15),
-              DropdownButtonFormField<String>(
-                value: widget.bookingStatus, 
-                decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12)),
-                items: [widget.bookingStatus].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                onChanged: null, 
+              
+              // Status Dropdown (Read Only)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(4)),
+                child: Text(_booking!.status, style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
               const SizedBox(height: 15),
+              
+              // Date Field
               TextField(
                 enabled: false,
-                decoration: const InputDecoration(
-                  hintText: "22-01-2025 22:32",
-                  border: OutlineInputBorder(),
-                  suffixIcon: Icon(Icons.calendar_today, size: 18),
+                decoration: InputDecoration(
+                  hintText: _formatDate(_booking!.bookingDate),
+                  border: const OutlineInputBorder(),
+                  suffixIcon: const Icon(Icons.calendar_today, size: 18),
                 ),
               )
             ],
           ),
         ),
+        
         const SizedBox(height: 24),
+        
+        // Location Card (Same as before)
         _buildCard(
           title: "Service Location",
           titleIcon: Icons.map,
@@ -347,48 +502,64 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                   style: TextStyle(color: Color(0xFFD97706), fontSize: 13, height: 1.4)),
               ),
               const SizedBox(height: 15),
-              const Text("Service Location:", style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text("Address:", style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 5),
-              const Text("Sector 18, Indira Nagar,\nLucknow, Uttar Pradesh 226016", style: TextStyle(color: Colors.grey, height: 1.4)),
+              Text(
+                "${_booking!.address?.addressLine1 ?? ''}, ${_booking!.address?.city ?? ''}",
+                style: const TextStyle(color: Colors.grey, height: 1.4)
+              ),
             ],
           ),
         ),
+        
         const SizedBox(height: 24),
-        // --- PROVIDER INFORMATION CARD ---
+        
+        // Provider Info (Same as before)
         _buildCard(
           title: "Provider Information",
-          titleIcon: Icons.engineering, // Contextually relevant icon
-          child: Row(
-            children: [
-              const CircleAvatar(radius: 24, backgroundImage: NetworkImage("https://i.pravatar.cc/150?img=60")), // Using placeholder image
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text("Amit Services", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF2563EB))),
-                  SizedBox(height: 4),
-                  Text("+91 91234 56789", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                  Text("Gomti Nagar, Lucknow", style: TextStyle(color: Colors.grey, fontSize: 12)),
+          titleIcon: Icons.engineering,
+          child: _booking!.provider == null 
+            ? const Text("No Provider Assigned", style: TextStyle(color: Colors.red))
+            : Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24, 
+                    backgroundColor: Colors.orange[100], 
+                    child: Text(_booking!.provider!.firstName.isNotEmpty ? _booking!.provider!.firstName[0] : "P"),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("${_booking!.provider!.firstName} ${_booking!.provider!.lastName}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF2563EB))),
+                      const SizedBox(height: 4),
+                      Text(_booking!.provider!.mobile, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    ],
+                  )
                 ],
-              )
-            ],
-          ),
+              ),
         ),
+        
         const SizedBox(height: 24),
+        
+        // Customer Info (Same as before)
         _buildCard(
           title: "Customer Information",
           titleIcon: Icons.person,
           child: Row(
             children: [
-              const CircleAvatar(radius: 24, backgroundImage: NetworkImage("https://i.pravatar.cc/150?img=11")),
+              CircleAvatar(
+                radius: 24, 
+                backgroundColor: Colors.blue[100], 
+                child: Text(_booking!.customerName.isNotEmpty ? _booking!.customerName[0] : "C"),
+              ),
               const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text("Rohan Sharma", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF2563EB))),
-                  SizedBox(height: 4),
-                  Text("+91 98765 43210", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                  Text("Lucknow, UP, India", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                children: [
+                  Text(_booking!.customerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF2563EB))),
+                  const SizedBox(height: 4),
+                  Text(_booking!.customerPhone, style: const TextStyle(color: Colors.grey, fontSize: 12)),
                 ],
               )
             ],
@@ -398,7 +569,8 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     );
   }
 
-  // --- BASIC CARD HELPER ---
+  // --- WIDGET HELPERS ---
+
   Widget _buildCard({String? title, IconData? titleIcon, required Widget child}) {
     return Container(
       width: double.infinity,
@@ -426,7 +598,6 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     );
   }
 
-  // --- SUMMARY ROW HELPERS ---
   Widget _buildSummaryHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -435,8 +606,6 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
           Expanded(flex: 3, child: Text("SERVICE", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey))),
           Expanded(flex: 2, child: Text("PRICE", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey))),
           Expanded(flex: 1, child: Text("QTY", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey))),
-          Expanded(flex: 2, child: Text("DISCOUNT", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey))),
-          Expanded(flex: 2, child: Text("VAT", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey))),
           Expanded(flex: 2, child: Text("TOTAL", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey), textAlign: TextAlign.end)),
         ],
       ),
@@ -454,8 +623,6 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
           ])),
           Expanded(flex: 2, child: Text(price)),
           Expanded(flex: 1, child: Text(qty)),
-          Expanded(flex: 2, child: Text(disc)),
-          Expanded(flex: 2, child: Text(vat)),
           Expanded(flex: 2, child: Text(total, textAlign: TextAlign.end, style: const TextStyle(fontWeight: FontWeight.bold))),
         ],
       ),

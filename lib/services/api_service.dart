@@ -3,8 +3,9 @@ import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http_parser/http_parser.dart'; 
 import 'package:mime/mime.dart'; 
-
+import '../models/location_model.dart';
 import '../models/data_models.dart';
+import 'dart:convert'; // Required for jsonEncode
 
 class ApiService {
   // NO trailing slash
@@ -147,14 +148,115 @@ class ApiService {
     }
   }
 
-  Future<bool> addService(Map<String, dynamic> data, Uint8List? imageBytes, String? imageName) async {
+
+
+// Inside your ApiService class...
+
+Future<bool> addService(Map<String, dynamic> serviceData, Uint8List? imageBytes, String? imageName) async {
+  try {
+    // 1. Create the Multipart Request
+    // The API expects two specific parts: "request" (JSON) and "file" (Binary)
+    
+    final Map<String, dynamic> formDataMap = {
+      // Wrap the service details into a JSON string for the 'request' part
+      'request': MultipartFile.fromString(
+        jsonEncode(serviceData),
+        contentType: MediaType.parse('application/json'), 
+      ),
+    };
+
+    // 2. Add the Image file (Key must be 'file' based on your schema)
+    if (imageBytes != null) {
+      formDataMap['file'] = MultipartFile.fromBytes(
+        imageBytes,
+        filename: imageName ?? 'service_img.jpg',
+      );
+    }
+
+    FormData formData = FormData.fromMap(formDataMap);
+
+    // 3. Send Request
+    // Note: Ensure your _dio instance has the 'Authorization: Bearer <token>' header set!
+    final response = await _dio.post(
+      '/admin/addServices',
+      data: formData,
+    );
+
+    return response.statusCode == 200 || response.statusCode == 201;
+  } catch (e) {
+    print("API Error: $e");
+    // If e is DioException, print the response for debugging
+    if (e is DioException) {
+      print("Server Response: ${e.response?.data}");
+    }
+    return false;
+  }
+}
+  // --- 5. LOCATIONS ---
+
+  Future<List<LocationModel>> getLocations() async {
     try {
-      final mapData = <String, dynamic>{...data};
-      if (imageBytes != null) mapData['image'] = await _prepareFile(imageBytes, imageName);
-      
-      FormData formData = FormData.fromMap(mapData);
-      await _dio.post('/admin/addServices', data: formData);
+      final response = await _dio.get('/admin/getLocation');
+      if (response.data['result'] is List) {
+        return (response.data['result'] as List)
+            .map((x) => LocationModel.fromJson(x))
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      print("Get Location Error: $e");
+      return [];
+    }
+  }
+
+  Future<bool> addLocation(LocationModel location) async {
+    try {
+      // We send the JSON body directly
+      await _dio.post('/admin/addLocation', data: location.toJson());
       return true;
-    } catch (e) { return false; }
+    } catch (e) {
+      print("Add Location Error: $e");
+      return false;
+    }
+  }
+  // inside your ApiService class
+Future<dynamic> getAllCustomers({required int page, required int size}) async {
+  try {
+    // Replace 'dio' with your http client instance
+    final response = await _dio.get(
+      '/admin/getAllCustomer',
+      queryParameters: {
+        'page': page,
+        'size': size,
+      },
+    );
+    return response.data;
+  } catch (e) {
+    rethrow;
+  }
+}
+// --- BOOKINGS ---
+  Future<dynamic> getBookings({required int page, required int size}) async {
+    try {
+      final response = await _dio.get(
+        '/admin/getBookings',
+        queryParameters: {
+          'page': page,
+          'size': size,
+        },
+      );
+      return response.data;
+    } catch (e) {
+      rethrow;
+    }
+  }
+  Future<dynamic> getAllServiceProviders() async {
+    try {
+      final response = await _dio.get('/admin/getAllServiceProvider');
+      return response.data;
+    } catch (e) {
+      print("API Error (Get Providers): $e");
+      rethrow; // Pass error to repo for handling
+    }
   }
 }

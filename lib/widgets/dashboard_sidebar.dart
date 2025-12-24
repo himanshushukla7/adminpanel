@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'sidebar_widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../screens/login_screen.dart'; // Make sure this path is correct
 
 class DashboardSidebar extends StatefulWidget {
   final bool collapsed;
@@ -29,7 +31,8 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
   bool _reportsOpen = false;
   bool _analyticsOpen = false;
   bool _notificationsOpen = false;
-
+  bool _zoneSetupOpen = false;
+  bool _providersOpen = false;
   // --- NEW: Separate States for Promotion Sub-sections ---
   bool _discountsOpen = false;
   bool _couponsOpen = false;
@@ -177,7 +180,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                   firstChild: const SizedBox.shrink(),
                   secondChild: Column(
                     children: [
-                      NavTile(
+                  /*    NavTile(
                         icon: Icons.adjust_rounded,
                         label: 'Customized Requests',
                         badge: 13,
@@ -185,7 +188,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                         isChild: true,
                         isActive: _isActive('booking/customized'),
                         onTap: () => widget.onNav?.call('booking/customized'),
-                      ),
+                      ), */
                       NavTile(
                         icon: Icons.receipt_long_outlined,
                         label: 'Offline Payment',
@@ -229,6 +232,53 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                 SectionHeader('SERVICE MANAGEMENT', hidden: collapsed),
 
                 // --- CATEGORY SECTION ---
+                // --- ZONE SECTION ---
+                NavTile(
+                  icon: Icons.map_outlined,
+                  label: 'Zone Setup',
+                  collapsed: collapsed,
+                  // Keep parent active if either child is active
+                  isActive: _isActive('zone/map') || _isActive('zone/provider-map'), 
+                  trailing: collapsed
+                      ? null
+                      : Icon(
+                          _zoneSetupOpen ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_right_rounded,
+                          size: 20,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                  onTap: () => setState(() => _zoneSetupOpen = !_zoneSetupOpen),
+                ),
+
+                AnimatedCrossFade(
+                  duration: const Duration(milliseconds: 200),
+                  crossFadeState: _zoneSetupOpen && !collapsed ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                  firstChild: const SizedBox.shrink(),
+                  secondChild: Column(
+                    children: [
+                      // 1. Zone Map
+                      NavTile(
+                        icon: Icons.layers_outlined, 
+                        label: 'Zone Map',
+                        collapsed: collapsed,
+                        isChild: true,
+                        isActive: _isActive('zone/map'),
+                        // Use this route string in your main navigation switch
+                        onTap: () => widget.onNav?.call('zone/map'), 
+                      ),
+                      
+                      // 2. Provider Map
+                      NavTile(
+                        icon: Icons.person_pin_circle_outlined,
+                        label: 'Provider Map',
+                        collapsed: collapsed,
+                        isChild: true,
+                        isActive: _isActive('zone/provider-map'),
+                        // Use this route string in your main navigation switch
+                        onTap: () => widget.onNav?.call('zone/provider-map'),
+                      ),
+                    ],
+                  ),
+                ),
                 NavTile(
                   icon: Icons.category_outlined,
                   label: 'Category Setup',
@@ -307,6 +357,57 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                         isChild: true,
                         isActive: _isActive('service/add'),
                         onTap: () => widget.onNav?.call('service/add'),
+                      ),
+                    ],
+                  ),
+                ),
+              SectionHeader('PROVIDER MANAGEMENT', hidden: collapsed),
+
+                NavTile(
+                  icon: Icons.handyman_outlined,
+                  label: 'Providers', 
+                  collapsed: collapsed,
+                  isActive: _isActive('provider/'), 
+                  trailing: collapsed
+                      ? null
+                      : Icon(
+                          _providersOpen ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_right_rounded,
+                          size: 20,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                  onTap: () => setState(() => _providersOpen = !_providersOpen),
+                ),
+
+                AnimatedCrossFade(
+                  duration: const Duration(milliseconds: 200),
+                  crossFadeState: _providersOpen && !collapsed ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                  firstChild: const SizedBox.shrink(),
+                  secondChild: Column(
+                    children: [
+                      NavTile(
+                        icon: Icons.format_list_bulleted_rounded,
+                        label: 'Provider List',
+                        collapsed: collapsed,
+                        isChild: true,
+                        isActive: _isActive('provider/list'),
+                        onTap: () => widget.onNav?.call('provider/list'),
+                      ),
+                      NavTile(
+                        icon: Icons.person_add_alt,
+                        label: 'Add Provider',
+                        collapsed: collapsed,
+                        isChild: true,
+                        isActive: _isActive('provider/add'),
+                        onTap: () => widget.onNav?.call('provider/add'),
+                      ),
+                      NavTile(
+                        icon: Icons.pending_actions_outlined,
+                        label: 'Onboarding Requests',
+                        badge: 3, // Example Badge for pending requests
+                        collapsed: collapsed,
+                        isChild: true,
+                        isActive: _isActive('provider/onboarding'),
+                        onTap: () => widget.onNav?.call('provider/onboarding'),
                       ),
                     ],
                   ),
@@ -632,13 +733,26 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                 ),
 
                 // --- ACCOUNT SECTION ---
-                SectionHeader('ACCOUNT', hidden: collapsed),
-                NavTile(
-                  icon: Icons.logout,
-                  label: 'Logout',
-                  collapsed: collapsed,
-                  onTap: () => widget.onNav?.call('auth/login'),
-                ),
+SectionHeader('ACCOUNT', hidden: collapsed),
+NavTile(
+  icon: Icons.logout,
+  label: 'Logout',
+  collapsed: collapsed,
+  onTap: () async {
+    // 1. Clear the Session Lock
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', false);
+
+    // 2. Navigate immediately to LoginScreen
+    // Using pushAndRemoveUntil ensures the user can't hit "Back" to return to the dashboard
+    if (context.mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (Route<dynamic> route) => false, 
+      );
+    }
+  },
+),
               ],
             ),
           ),

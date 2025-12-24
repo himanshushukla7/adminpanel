@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../models/customer_models.dart'; // Ensure this import points to your model file
 
-// If you have a separate models file, keep this import.
-// import '../models/customer_models.dart';
+// --- Constants ---
+const Color kPrimaryOrange = Color(0xFFFF6B00);
+const Color kTextDark = Color(0xFF1E293B);
+const Color kTextLight = Color(0xFF64748B);
+const Color kBorderColor = Color(0xFFE2E8F0);
+const Color kBgColor = Color(0xFFF1F5F9);
 
 class CustomerUpdateScreen extends StatefulWidget {
   final VoidCallback? onBack;
+  final Customer customer; // ADDED: Receive the customer object
 
-  const CustomerUpdateScreen({super.key, this.onBack});
+  const CustomerUpdateScreen({
+    super.key, 
+    this.onBack,
+    required this.customer, // ADDED
+  });
 
   @override
   State<CustomerUpdateScreen> createState() => _CustomerUpdateScreenState();
@@ -18,23 +28,48 @@ class _CustomerUpdateScreenState extends State<CustomerUpdateScreen> {
   bool _isUploading = false;
   String? _pickedFileName;
   bool _isSubmitting = false;
-  int _selectedAddressIndex = 0; // 0 for Home, 1 for Office
+  int _selectedAddressIndex = 0;
+
+  // Controllers for form fields
+  late TextEditingController _firstNameController;
+  late TextEditingController _lastNameController;
+  late TextEditingController _emailController;
+  late TextEditingController _phoneController;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize controllers with customer data
+    // Assuming 'name' field combines first and last, we might need to split it for editing
+    // or just put the whole name in first name field if splitting is unreliable.
+    final nameParts = widget.customer.name.split(' ');
+    String firstName = nameParts.isNotEmpty ? nameParts.first : '';
+    String lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
+    _firstNameController = TextEditingController(text: firstName);
+    _lastNameController = TextEditingController(text: lastName);
+    _emailController = TextEditingController(text: widget.customer.email);
+    _phoneController = TextEditingController(text: widget.customer.phone);
+  }
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
 
   // --- Actions ---
-  
-  // Simulating an Image Pick
   void _pickImage() async {
-    if (_pickedFileName != null) return; // Already picked
-
+    if (_pickedFileName != null) return;
     setState(() => _isUploading = true);
-    
-    // Simulate network/file delay
     await Future.delayed(const Duration(seconds: 2));
-
     if (mounted) {
       setState(() {
         _isUploading = false;
-        _pickedFileName = "new_profile_photo.jpg"; // Mock file name
+        _pickedFileName = "new_profile_photo.jpg"; 
       });
     }
   }
@@ -47,10 +82,13 @@ class _CustomerUpdateScreenState extends State<CustomerUpdateScreen> {
 
   void _submitForm() async {
     setState(() => _isSubmitting = true);
-    await Future.delayed(const Duration(seconds: 2)); // Simulate API call
+    
+    // Here you would call your API update method using:
+    // _firstNameController.text, _lastNameController.text, etc.
+    
+    await Future.delayed(const Duration(seconds: 2)); 
     if (mounted) {
       setState(() => _isSubmitting = false);
-      // Show success or navigate back
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Profile updated successfully!"), backgroundColor: Colors.green),
       );
@@ -61,24 +99,38 @@ class _CustomerUpdateScreenState extends State<CustomerUpdateScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kBgColor, // Added background color
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- Header (Settings Icon Removed) ---
+            // --- Header ---
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text('Customer Update', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: kTextDark)),
-                    SizedBox(height: 6),
-                    Text('Update customer details and manage addresses', style: TextStyle(color: kTextLight, fontSize: 14)),
+                  children: [
+                    Row(
+                      children: [
+                        if(widget.onBack != null)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: IconButton(
+                              icon: const Icon(Icons.arrow_back, color: kTextDark),
+                              onPressed: widget.onBack,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ),
+                        const Text('Customer Update', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: kTextDark)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text('Update customer details and manage addresses', style: TextStyle(color: kTextLight, fontSize: 14)),
                   ],
                 ),
-                // Settings Icon removed as requested
               ],
             ),
             const SizedBox(height: 24),
@@ -87,7 +139,7 @@ class _CustomerUpdateScreenState extends State<CustomerUpdateScreen> {
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16), // Rounded corners
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
                 ],
@@ -109,22 +161,22 @@ class _CustomerUpdateScreenState extends State<CustomerUpdateScreen> {
                               const SizedBox(height: 24),
                               
                               _buildLabel('First Name *'),
-                              _buildTextField('Anika', icon: Icons.person_outline),
+                              _buildTextField(_firstNameController, icon: Icons.person_outline),
                               const SizedBox(height: 20),
                               
                               _buildLabel('Last Name *'),
-                              _buildTextField('Enter last name', icon: Icons.person_outline),
+                              _buildTextField(_lastNameController, icon: Icons.person_outline),
                               const SizedBox(height: 20),
 
                               _buildLabel('Email *'),
-                              _buildTextField('Enter email address', icon: Icons.email_outlined),
+                              _buildTextField(_emailController, icon: Icons.email_outlined),
                               const SizedBox(height: 20),
 
                               _buildLabel('Phone *'),
-                              _buildPhoneField('1788223323'), // Flag removed inside this widget
+                              _buildPhoneField(_phoneController), 
                               const SizedBox(height: 32),
 
-                              // Saved Addresses
+                              // Saved Addresses (Static for now as API doesn't provide them yet)
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -145,7 +197,6 @@ class _CustomerUpdateScreenState extends State<CustomerUpdateScreen> {
                         ),
                         
                         const SizedBox(width: 40),
-                        // Vertical Divider
                         Container(width: 1, height: 600, color: const Color(0xFFF1F5F9)), 
                         const SizedBox(width: 40),
 
@@ -166,8 +217,13 @@ class _CustomerUpdateScreenState extends State<CustomerUpdateScreen> {
                                     radius: 65,
                                     backgroundColor: const Color(0xFFE2E8F0),
                                     backgroundImage: _pickedFileName != null 
-                                      ? const NetworkImage('https://img.freepik.com/free-photo/portrait-white-man-isolated_53876-40306.jpg') // Simulating new image
-                                      : const NetworkImage('https://img.freepik.com/free-vector/mysterious-mafia-man-smoking-cigarette_52683-34828.jpg'), 
+                                      ? const NetworkImage('https://img.freepik.com/free-photo/portrait-white-man-isolated_53876-40306.jpg') // Mock Local file
+                                      : (widget.customer.imgLink != null && widget.customer.imgLink!.isNotEmpty) 
+                                          ? NetworkImage(widget.customer.imgLink!) // Use customer image
+                                          : null, // Fallback to icon
+                                    child: (_pickedFileName == null && (widget.customer.imgLink == null || widget.customer.imgLink!.isEmpty))
+                                        ? Text(widget.customer.name.isNotEmpty ? widget.customer.name[0].toUpperCase() : 'U', style: const TextStyle(fontSize: 40, color: kTextLight))
+                                        : null,
                                   ),
                                   Positioned(
                                     bottom: 0, right: 0,
@@ -211,25 +267,25 @@ class _CustomerUpdateScreenState extends State<CustomerUpdateScreen> {
                                           ],
                                         )
                                       : _pickedFileName != null 
-                                        ? Column(
-                                            children: [
-                                              const Icon(Icons.check_circle, color: Colors.green, size: 32),
-                                              const SizedBox(height: 8),
-                                              Text(_pickedFileName!, style: const TextStyle(color: kTextDark, fontWeight: FontWeight.bold)),
-                                              const SizedBox(height: 8),
-                                              InkWell(
-                                                onTap: _removeImage,
-                                                child: const Text('Remove', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12, decoration: TextDecoration.underline)),
-                                              )
-                                            ],
-                                          )
-                                        : Column(
-                                            children: const [
-                                              Icon(Icons.cloud_upload_outlined, color: kPrimaryOrange, size: 32),
-                                              SizedBox(height: 12),
-                                              Text('Click to upload', style: TextStyle(color: kPrimaryOrange, fontWeight: FontWeight.bold)),
-                                            ],
-                                          ),
+                                      ? Column(
+                                          children: [
+                                            const Icon(Icons.check_circle, color: Colors.green, size: 32),
+                                            const SizedBox(height: 8),
+                                            Text(_pickedFileName!, style: const TextStyle(color: kTextDark, fontWeight: FontWeight.bold)),
+                                            const SizedBox(height: 8),
+                                            InkWell(
+                                              onTap: _removeImage,
+                                              child: const Text('Remove', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12, decoration: TextDecoration.underline)),
+                                            )
+                                          ],
+                                        )
+                                      : Column(
+                                          children: const [
+                                            Icon(Icons.cloud_upload_outlined, color: kPrimaryOrange, size: 32),
+                                            SizedBox(height: 12),
+                                            Text('Click to upload', style: TextStyle(color: kPrimaryOrange, fontWeight: FontWeight.bold)),
+                                          ],
+                                        ),
                                   ),
                                 ),
                               )
@@ -248,35 +304,38 @@ class _CustomerUpdateScreenState extends State<CustomerUpdateScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                         ElevatedButton(
+                          ElevatedButton(
                           onPressed: () {
                              // Reset Logic
                              setState(() {
                                _pickedFileName = null;
+                               // Reset text fields to initial customer values
+                               _firstNameController.text = widget.customer.name.split(' ').first;
+                               // ... etc
                              });
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFF1F5F9), 
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          child: const Text('Reset', style: TextStyle(color: kTextDark)),
-                        ),
-                        const SizedBox(width: 16),
-                        ElevatedButton(
-                          onPressed: _isSubmitting ? null : _submitForm,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: kPrimaryOrange, 
-                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            elevation: 2,
-                            shadowColor: kPrimaryOrange.withOpacity(0.4),
-                          ),
-                          child: _isSubmitting 
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : const Text('Save Changes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                        ),
+                           },
+                           style: ElevatedButton.styleFrom(
+                             backgroundColor: const Color(0xFFF1F5F9), 
+                             elevation: 0,
+                             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                           ),
+                           child: const Text('Reset', style: TextStyle(color: kTextDark)),
+                         ),
+                         const SizedBox(width: 16),
+                         ElevatedButton(
+                           onPressed: _isSubmitting ? null : _submitForm,
+                           style: ElevatedButton.styleFrom(
+                             backgroundColor: kPrimaryOrange, 
+                             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                             elevation: 2,
+                             shadowColor: kPrimaryOrange.withOpacity(0.4),
+                           ),
+                           child: _isSubmitting 
+                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                             : const Text('Save Changes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                         ),
                       ],
                     ),
                   )
@@ -304,9 +363,9 @@ class _CustomerUpdateScreenState extends State<CustomerUpdateScreen> {
     );
   }
 
-  Widget _buildTextField(String initialValue, {IconData? icon}) {
+  Widget _buildTextField(TextEditingController controller, {IconData? icon}) {
     return TextFormField(
-      initialValue: initialValue,
+      controller: controller, // Use controller instead of initialValue
       style: const TextStyle(color: kTextDark, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         prefixIcon: icon != null ? Icon(icon, color: kTextLight, size: 20) : null,
@@ -320,7 +379,7 @@ class _CustomerUpdateScreenState extends State<CustomerUpdateScreen> {
     );
   }
 
-  Widget _buildPhoneField(String number) {
+  Widget _buildPhoneField(TextEditingController controller) {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: kBorderColor),
@@ -333,17 +392,16 @@ class _CustomerUpdateScreenState extends State<CustomerUpdateScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: const [
-                 // Flag Removed Here
                  Text('+91', style: TextStyle(fontWeight: FontWeight.bold, color: kTextDark, fontSize: 15)),
                  SizedBox(width: 4),
                  Icon(Icons.keyboard_arrow_down_rounded, color: kTextLight, size: 18)
               ],
             ),
           ),
-          Container(width: 1, height: 24, color: kBorderColor), // Shorter divider
+          Container(width: 1, height: 24, color: kBorderColor),
           Expanded(
             child: TextFormField(
-              initialValue: number,
+              controller: controller,
               style: const TextStyle(fontWeight: FontWeight.w600),
               decoration: const InputDecoration(
                 border: InputBorder.none,
@@ -439,20 +497,9 @@ class _DashedBorderPainter extends CustomPainter {
       startY += dashWidth + dashSpace;
     }
 
-    // Add rounded corners visually by clipping (simplified for this specific rect shape)
-    // For perfect rounded dotted borders, path metrics are usually needed, but this suffices for the box look.
     canvas.drawPath(path, paint);
   }
 
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
-
-// =============================================================================
-// CONSTANTS
-// =============================================================================
-const Color kPrimaryOrange = Color(0xFFFF6B00); 
-const Color kTextDark = Color(0xFF1E293B);
-const Color kTextLight = Color(0xFF64748B);
-const Color kBorderColor = Color(0xFFE2E8F0);
-const Color kBgColor = Color(0xFFF1F5F9);

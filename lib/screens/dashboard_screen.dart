@@ -37,6 +37,11 @@ import 'coupon_list_screen.dart';
 import 'add_coupon_screen.dart';
 import 'update_coupon_screen.dart';
 import 'update_promotional_banner_screen.dart';
+import 'zone_setup_screen.dart';
+import 'provider_list_screen.dart';
+import 'provider_add_screen.dart';
+import 'provider_onboarding_request_screen.dart';
+import '../models/customer_models.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -48,9 +53,9 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   bool _collapsed = false;
   String _currentRoute = 'dashboard';
-  
+  Customer? _selectedCustomer; // <--- ADD THIS VARIABLE
   Map<String, String>? _selectedBooking; 
-
+dynamic _selectedOnboardingRequest;
   void _viewBookingDetails(String id, String status) {
     setState(() {
       _selectedBooking = {'id': id, 'status': status};
@@ -129,21 +134,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }
           },
         );
-      // --- UPDATED CUSTOMER SECTION ---
+
+      // --- CUSTOMER SECTION ---
       case 'customer/list':
         return CustomerListScreen(
-         onEditCustomer: () => setState(() => _currentRoute = 'customer/update'),
-         onViewCustomer: () => setState(() => _currentRoute = 'customer/overview'), // Connect this!
-            );
+onEditCustomer: (customer) {
+            setState(() {
+              _selectedCustomer = customer; // Store the customer to edit
+              _currentRoute = 'customer/update'; // Navigate to update screen
+            });
+          },          // Capture the 'customer' data here
+          onViewCustomer: (customer) {
+            setState(() {
+              _selectedCustomer = customer; // Store it
+              _currentRoute = 'customer/overview'; // Navigate
+            });
+          },
+        );
 
       case 'customer/overview':
-         return CustomerOverviewScreen(
-        onBack: () => setState(() => _currentRoute = 'customer/list'),
-        onEdit: () => setState(() => _currentRoute = 'customer/update'),
-         );
+        // Safety check: if accessed without selecting a user
+        if (_selectedCustomer == null) {
+          return const Center(child: Text("No customer selected. Please go back to the list."));
+        }
+        return CustomerOverviewScreen(
+          customer: _selectedCustomer!, // Pass the stored customer here
+          onBack: () => setState(() => _currentRoute = 'customer/list'),
+          onEdit: () => setState(() => _currentRoute = 'customer/update'),
+        );
 
       case 'customer/update':
+        // Safety check: if accessed without selecting a user
+        if (_selectedCustomer == null) {
+          return const Center(child: Text("No customer selected for update. Please go back to the list."));
+        }
+        
         return CustomerUpdateScreen(
+          customer: _selectedCustomer!, // PASS THE DATA HERE
           onBack: () {
             // Switch back to list
             setState(() {
@@ -151,6 +178,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             });
           },
         );
+      // --- REPORTS ---
       case 'report/transaction':
         return TransactionReportScreen();
       case 'report/booking':
@@ -158,12 +186,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 'report/provider':
         return ProviderReportScreen();
       case 'analytics/keyword':
-         return const KeywordAnalyticsScreen();   
+          return const KeywordAnalyticsScreen();   
+      
+      // --- EMPLOYEES ---
       case 'employee/role-setup': 
         return EmployeeRoleListScreen(
-          // Switch to Add Screen
           onAddRole: () => setState(() => _currentRoute = 'employee/role-add'),
-          // Switch to Update Screen (NEW)
           onEditRole: () => setState(() => _currentRoute = 'employee/role-update'),
         );
       
@@ -172,12 +200,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
            onBack: () => setState(() => _currentRoute = 'employee/role-setup'),
         );
 
-      // NEW CASE FOR UPDATE SCREEN
       case 'employee/role-update':
-        return const RoleUpdateScreen(); // Ensure you import RoleUpdateScreen
+        return const RoleUpdateScreen(); 
+
        case 'employee/list':
         return EmployeeListScreen(
-          // 4. Pass the function to switch the route
           onAddEmployee: () {
             setState(() {
               _currentRoute = 'employee/add';
@@ -187,6 +214,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       case 'employee/add':  
         return const AddEmployeeScreen();
+
+      // --- PROMOTIONS ---
       case 'promotion/banner':  
         return  PromotionalBannersScreen(
           onUpdateBanner: () {
@@ -198,18 +227,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 'promotion/banner/update':
         return const UpdatePromotionalBannerScreen();  
       case 'promotion/discount/list':
-      return DiscountListScreen(
-        // Pass the function to switch route on edit click
-        onEditDiscount: () {
-          setState(() {
-            _currentRoute = 'promotion/discount/update';
-          });
-        },
-      );
+        return DiscountListScreen(
+          onEditDiscount: () {
+            setState(() {
+              _currentRoute = 'promotion/discount/update';
+            });
+          },
+        );
 
-    // NEW CASE: Logic to show the Update Discount Screen
-    case 'promotion/discount/update':
-      return const UpdateDiscountScreen(); // Ensure you import this class
+      case 'promotion/discount/update':
+        return const UpdateDiscountScreen(); 
       case 'promotion/discount/add':
         return const AddDiscountScreen();
       case 'promotion/coupon/list':
@@ -224,14 +251,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const UpdateCouponScreen();
       case 'promotion/coupon/add':
         return const AddCouponScreen();
+        
+      // --- OTHERS ---
       case 'notification/send':
-        return const SendNotificationScreen(); // Placeholder for Notification Screen
+        return const SendNotificationScreen(); 
+      case 'zone/map':
+        return  LocationManagementScreen(); 
+      
+      // --- PROVIDERS ---
+      case 'provider/list':  
+        return ProviderListScreen();
+      case 'provider/add':  
+        return AddProviderScreen(
+          data: _selectedOnboardingRequest, 
+          onBack: () {
+             setState(() {
+               _currentRoute = 'provider/onboarding'; 
+               _selectedOnboardingRequest = null; 
+             });
+          },
+        );
+
+      case 'provider/onboarding':  
+        return ProviderOnboardingRequestScreen(
+          onViewRequest: (requestData) {
+            setState(() {
+              _selectedOnboardingRequest = requestData; 
+              _currentRoute = 'provider/add'; 
+            });
+          },
+        );
 
       default:
         return const DashboardHome();
     }
   }
-
   void _handleNavigation(String route) {
     if (route == 'auth/login') {
       Navigator.pushAndRemoveUntil(

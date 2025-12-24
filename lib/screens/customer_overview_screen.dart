@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../models/customer_models.dart'; // Ensure this import points to your model file
 
 // --- Constants ---
 const Color kPrimaryOrange = Color(0xFFFF6B00);
@@ -11,9 +12,15 @@ const Color kBgColor = Color(0xFFF1F5F9);
 
 class CustomerOverviewScreen extends StatefulWidget {
   final VoidCallback? onBack;
-  final VoidCallback? onEdit; // Triggers navigation to Update Screen
+  final VoidCallback? onEdit;
+  final Customer customer; // Added: Receive the specific customer data
 
-  const CustomerOverviewScreen({super.key, this.onBack, this.onEdit});
+  const CustomerOverviewScreen({
+    super.key, 
+    this.onBack, 
+    this.onEdit, 
+    required this.customer
+  });
 
   @override
   State<CustomerOverviewScreen> createState() => _CustomerOverviewScreenState();
@@ -54,10 +61,11 @@ class _CustomerOverviewScreenState extends State<CustomerOverviewScreen> {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    const Text('Joined on 23-Jan-25 18:10PM', style: TextStyle(color: kTextLight)),
+                    // Dynamic Joined Date
+                    Text('Joined on ${widget.customer.joinedDate}', style: const TextStyle(color: kTextLight)),
                   ],
                 ),
-                // Share Icon (from image)
+                // Share Icon
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
@@ -87,9 +95,12 @@ class _CustomerOverviewScreenState extends State<CustomerOverviewScreen> {
             IndexedStack(
               index: _currentTab,
               children: [
-                _OverviewTab(onEdit: widget.onEdit), // Pass the edit callback
-                const _BookingsTab(),
-                const _ReviewsTab(),
+                _OverviewTab(
+                  customer: widget.customer, // Pass customer to tab
+                  onEdit: widget.onEdit
+                ), 
+                const _BookingsTab(), // You can pass customer here later for API calls
+                const _ReviewsTab(),  // You can pass customer here later for API calls
               ],
             ),
           ],
@@ -124,45 +135,50 @@ class _CustomerOverviewScreenState extends State<CustomerOverviewScreen> {
 }
 
 // =============================================================================
-// TAB 1: OVERVIEW (Matches image_bd1998.jpg)
+// TAB 1: OVERVIEW (Dynamic Data)
 // =============================================================================
 class _OverviewTab extends StatelessWidget {
   final VoidCallback? onEdit;
-  const _OverviewTab({this.onEdit});
+  final Customer customer; // Receive customer data
+  
+  const _OverviewTab({this.onEdit, required this.customer});
 
   @override
   Widget build(BuildContext context) {
+    // Dynamic Stats (Using placeholders if data isn't in model yet)
+    final bookingsCount = customer.bookings.toString();
+    const totalAmount = "\u20B90.00"; // API doesn't provide this yet
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // --- Stats Cards & Chart ---
-        // Using LayoutBuilder to handle responsiveness if needed, but assuming row for dashboard
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Card 1: Total Booking Placed
             Expanded(
               child: _buildStatCard(
-                value: "12",
+                value: bookingsCount, 
                 label: "Total Booking Placed",
                 valueColor: kPrimaryOrange,
-                bgColor: const Color(0xFFFFF7ED), // Light Orange
+                bgColor: const Color(0xFFFFF7ED),
               ),
             ),
             const SizedBox(width: 20),
             // Card 2: Total Booking Amount
             Expanded(
               child: _buildStatCard(
-                value: "\u20B924,500",
+                value: totalAmount,
                 label: "Total Booking Amount",
-                valueColor: const Color(0xFF10B981), // Green
-                bgColor: const Color(0xFFECFDF5), // Light Green
+                valueColor: const Color(0xFF10B981),
+                bgColor: const Color(0xFFECFDF5),
               ),
             ),
             const SizedBox(width: 20),
-            // Card 3: Booking Overview Chart
+            // Card 3: Booking Overview Chart (Static for now, can be dynamic later)
             Expanded(
-              flex: 1, // Give chart slightly more width if needed, or equal
+              flex: 1, 
               child: Container(
                 height: 140,
                 padding: const EdgeInsets.all(16),
@@ -189,11 +205,11 @@ class _OverviewTab extends StatelessWidget {
                               ],
                             ),
                           ),
-                          const Center(
+                          Center(
                             child: Text(
-                              "12\nBookings",
+                              "$bookingsCount\nBookings",
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, height: 1.2),
+                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, height: 1.2),
                             ),
                           )
                         ],
@@ -222,7 +238,7 @@ class _OverviewTab extends StatelessWidget {
         ),
         const SizedBox(height: 32),
 
-        // --- Personal Details ---
+        // --- Personal Details (Dynamic) ---
         const Text("Personal Details", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kTextDark)),
         const SizedBox(height: 16),
         Container(
@@ -235,25 +251,36 @@ class _OverviewTab extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Avatar
-              const CircleAvatar(
-                radius: 36,
-                backgroundColor: Color(0xFFFFE4B5),
-                child: Icon(Icons.person, size: 40, color: Color(0xFFE65100)),
-              ),
+              // Dynamic Avatar
+              if (customer.imgLink != null && customer.imgLink!.isNotEmpty)
+                CircleAvatar(
+                  radius: 36,
+                  backgroundImage: NetworkImage(customer.imgLink!),
+                  onBackgroundImageError: (_, __) {},
+                )
+              else
+                CircleAvatar(
+                  radius: 36,
+                  backgroundColor: Color(int.tryParse(customer.avatarColor) ?? 0xFFFFE4B5),
+                  child: Text(
+                    customer.name.isNotEmpty ? customer.name[0].toUpperCase() : "U",
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
               const SizedBox(width: 24),
-              // Info
+              
+              // Dynamic Info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Rajesh Kumar", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextDark)),
+                    Text(customer.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextDark)),
                     const SizedBox(height: 8),
-                    _buildInfoRow(Icons.phone_android, "+91 98765 43210"),
+                    _buildInfoRow(Icons.phone_android, customer.phone.isNotEmpty ? customer.phone : "No Phone"),
                     const SizedBox(height: 4),
-                    _buildInfoRow(Icons.email_outlined, "rajesh.kumar@example.com"),
+                    _buildInfoRow(Icons.email_outlined, customer.email.isNotEmpty ? customer.email : "No Email"),
                     const SizedBox(height: 4),
-                    _buildInfoRow(Icons.location_on_outlined, "Lucknow, UP"),
+                    _buildInfoRow(Icons.location_on_outlined, customer.location),
                   ],
                 ),
               ),
@@ -325,7 +352,8 @@ class _ChartLegend extends StatelessWidget {
 }
 
 // =============================================================================
-// TAB 2: BOOKINGS (Matches image_bd1995.png)
+// TAB 2: BOOKINGS (Static / Mock for now)
+// Note: To make this dynamic, you would need a fetchBookingsByCustomerId API
 // =============================================================================
 class _BookingsTab extends StatelessWidget {
   const _BookingsTab();
@@ -384,26 +412,18 @@ class _BookingsTab extends StatelessWidget {
           _buildRow("#BK-9021", "AC Repair & Service", "25 Jan, 2025", "Rajesh Kumar", "\u20B9499.00", "Completed", Colors.green, Icons.ac_unit, const Color(0xFFFFF3E0)),
           const Divider(height: 1, color: kBorderColor),
           _buildRow("#BK-9020", "Bathroom Cleaning", "22 Jan, 2025", "Suresh Verma", "\u20B9899.00", "Pending", const Color(0xFFEAB308), Icons.cleaning_services, const Color(0xFFE0F2FE)),
-          const Divider(height: 1, color: kBorderColor),
-          _buildRow("#BK-9018", "Fan Installation", "18 Jan, 2025", "Amit Singh", "\u20B9250.00", "Cancelled", Colors.red, Icons.wind_power, const Color(0xFFF3E8FF)),
-          const Divider(height: 1, color: kBorderColor),
-          _buildRow("#BK-8945", "Pest Control", "10 Jan, 2025", "Vikram Malhotra", "\u20B91,200.00", "Completed", Colors.green, Icons.bug_report, const Color(0xFFDCFCE7)),
           
           const SizedBox(height: 20),
           // Footer
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("Showing 1 to 4 of 12 entries", style: TextStyle(color: kTextLight, fontSize: 13)),
+              const Text("Showing 1 to 2 of 2 entries", style: TextStyle(color: kTextLight, fontSize: 13)),
               Row(
                 children: [
                   _PaginationBtn("<"),
                   const SizedBox(width: 8),
                   _PaginationBtn("1", active: true),
-                  const SizedBox(width: 8),
-                  _PaginationBtn("2"),
-                  const SizedBox(width: 8),
-                  _PaginationBtn("3"),
                   const SizedBox(width: 8),
                   _PaginationBtn(">"),
                 ],
@@ -465,7 +485,7 @@ class _BookingTableHeader extends StatelessWidget {
 }
 
 // =============================================================================
-// TAB 3: REVIEWS (Matches image_bd197d.png)
+// TAB 3: REVIEWS (Static / Mock)
 // =============================================================================
 class _ReviewsTab extends StatelessWidget {
   const _ReviewsTab();
@@ -480,7 +500,7 @@ class _ReviewsTab extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-               Expanded(
+                Expanded(
                 child: TextField(
                   decoration: InputDecoration(
                     hintText: 'Search here',
@@ -520,11 +540,9 @@ class _ReviewsTab extends StatelessWidget {
           const Divider(height: 1, color: kBorderColor),
 
           // Rows
-          _buildReviewRow("#LKO-2401-892", "22 Jan, 2025", 4.0, "Excellent service by the team. The cleaning was thorough and timely. Highly recommended for Lucknow residents!"),
+          _buildReviewRow("#LKO-2401-892", "22 Jan, 2025", 4.0, "Excellent service by the team. The cleaning was thorough and timely."),
           const Divider(height: 1, color: kBorderColor),
-          _buildReviewRow("#LKO-2312-455", "15 Dec, 2024", 5.0, "Very professional staff. Arrived exactly on time in Gomti Nagar. Will book again."),
-          const Divider(height: 1, color: kBorderColor),
-          _buildReviewRow("#LKO-2311-102", "02 Nov, 2024", 3.0, "Service was okay, but they forgot some cleaning supplies. Good behavior though."),
+          _buildReviewRow("#LKO-2312-455", "15 Dec, 2024", 5.0, "Very professional staff."),
         ],
       ),
     );

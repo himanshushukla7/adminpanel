@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Required for Clipboard
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart'; // Required for SVG Logo
+import 'package:shared_preferences/shared_preferences.dart'; // <--- 1. ADDED THIS IMPORT
 
 import '../controllers/auth_controller.dart';
 import 'dashboard_screen.dart';
@@ -21,17 +22,21 @@ class _LoginScreenState extends State<LoginScreen> {
   
   bool _isLoading = false;
   bool _obscurePassword = true;
-  bool _rememberMe = false;
+  // I changed default to true so users stay logged in by default unless they uncheck it
+  bool _rememberMe = true; 
 
   // Colors
   final Color _primaryOrange = const Color(0xFFF97316); 
   final Color _textDark = const Color(0xFF111827);
   final Color _textGrey = const Color(0xFF6B7280);
 
-  // Constants for credentials to make copying easier
+  // Constants for credentials
   final String _demoEmail = "Admin";
   final String _demoPass = "123456789";
 
+  // ---------------------------------------------------------
+  // UPDATED LOGIN LOGIC
+  // ---------------------------------------------------------
   void _handleLogin() async {
     setState(() => _isLoading = true);
 
@@ -40,6 +45,16 @@ class _LoginScreenState extends State<LoginScreen> {
       _passwordController.text,
       context,
     );
+
+    if (success) {
+      // <--- 2. SESSION LOCKER LOGIC STARTS HERE
+      // Only save session if "Remember Me" is checked (or remove the if check to always save)
+      if (_rememberMe) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isLoggedIn', true);
+      }
+      // <--- SESSION LOCKER LOGIC ENDS HERE
+    }
 
     setState(() => _isLoading = false);
 
@@ -76,7 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Background Image from Assets
+                // Background Image
                 Image.asset(
                   'assets/bg.jpg',
                   fit: BoxFit.cover,
@@ -100,17 +115,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Logo Area (SVG)
+                            // Logo Area
                             Row(
                               children: [
-                                // Replaced Orange Icon with SVG Asset
                                 SvgPicture.asset(
                                   'assets/logo.svg',
-                                  height: 40, // Adjust height as needed
-                                  // colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn), // Uncomment if you want to force white color
+                                  height: 40, 
                                 ),
-                                // Removed Text "Chayankaro" next to logo if the SVG includes text, 
-                                // otherwise keep the Text widget below:
                                 const SizedBox(width: 12),
                                 Text(
                                   "Chayankaro",
@@ -123,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ],
                             ),
                             const SizedBox(height: 30),
-                            // Rich Text Headline
+                            // Headline
                             RichText(
                               text: TextSpan(
                                 style: GoogleFonts.publicSans(
@@ -165,7 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
               color: Colors.white,
               child: Stack(
                 children: [
-                  // Scrollable Form Area
+                  // Form Area
                   Center(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(horizontal: 50),
@@ -173,7 +184,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Header
                           Text("Admin Sign In", style: GoogleFonts.publicSans(fontSize: 26, fontWeight: FontWeight.bold, color: _textDark)),
                           const SizedBox(height: 8),
                           Text("Sign in to stay connected", style: GoogleFonts.publicSans(fontSize: 14, color: _textGrey)),
@@ -242,7 +252,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
 
                           const SizedBox(height: 20),
-                         
                         ],
                       ),
                     ),
@@ -258,7 +267,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: _primaryOrange,
                       child: Row(
                         children: [
-                          // Functional Copy Button
                           InkWell(
                             onTap: _copyCredentials,
                             borderRadius: BorderRadius.circular(8),
@@ -293,7 +301,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // Helper for Input Decoration
   InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
       hintText: label,

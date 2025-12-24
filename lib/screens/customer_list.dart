@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+// --- IMPORTANT: This import provides the 'Customer' class ---
+import '../repositories/customer_repository.dart';
+import '../models/customer_models.dart'; 
+// -----------------------------------------------------------
+
 class CustomerListScreen extends StatefulWidget {
-  final VoidCallback? onEditCustomer;
-  final VoidCallback? onViewCustomer; // 1. ADDED: Callback for Overview
+  final Function(Customer)? onEditCustomer;
+  final Function(Customer)? onViewCustomer; 
+  
   const CustomerListScreen({
     super.key, 
     this.onEditCustomer, 
@@ -15,9 +21,22 @@ class CustomerListScreen extends StatefulWidget {
 }
 
 class _CustomerListScreenState extends State<CustomerListScreen> {
-  String _selectedTab = 'All';
+  // --- Dependencies ---
+  final CustomerRepository _repository = CustomerRepository(); 
+
+  // --- State Variables ---
+  List<Customer> _customers = [];
+  bool _isLoading = true;
+  String _errorMessage = '';
+  
+  // --- Pagination State (0-BASED) ---
+  int _currentPage = 0; // UPDATED: Start at 0 for API
+  int _pageSize = 10;
+  int _totalPages = 1;
+  int _totalElements = 0;
 
   // --- Filter State Variables ---
+  String _selectedTab = 'All';
   DateTime? _startDate;
   DateTime? _endDate;
   String _sortBy = 'Latest';
@@ -26,6 +45,70 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   // --- Constants for Dropdowns ---
   final List<String> _sortOptions = ['Latest', 'Oldest', 'Bookings High', 'Bookings Low'];
   final List<String> _areaOptions = ['All Areas', 'Gomti Nagar', 'Hazratganj', 'Aliganj', 'Indira Nagar'];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      // 1. Call the real API (Passes 0, 1, 2 etc.)
+      final response = await _repository.fetchCustomers(_currentPage, _pageSize);
+      
+      if (!mounted) return;
+
+      setState(() {
+        _totalPages = response.totalPages;
+        _totalElements = response.totalElements;
+        
+        // 2. Map API Model to UI Model
+        _customers = response.content.map((apiModel) {
+          return Customer(
+            id: apiModel.id,
+            name: '${apiModel.firstName} ${apiModel.lastName ?? ""}'.trim(),
+            email: apiModel.emailId ?? 'N/A',
+            phone: apiModel.mobileNo,
+            bookings: 0, // Placeholder
+            joinedDate: 'N/A', // Placeholder
+            location: 'Lucknow', // Placeholder
+            avatarColor: '0xFFE3F2FD', 
+            isActive: apiModel.status == 1,
+            imgLink: apiModel.imgLink
+          );
+        }).toList();
+        
+        _isLoading = false;
+      });
+
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+        print("API ERROR: $_errorMessage"); 
+      });
+    }
+  }
+
+  // UPDATED: Logic for 0-based indexing
+  void _onPageChanged(int newPage) {
+    // Check if newPage is valid (0 to totalPages - 1)
+    if (newPage >= 0 && newPage < _totalPages) {
+      setState(() {
+        _currentPage = newPage;
+      });
+      _fetchData();
+    }
+  }
 
   Future<void> _selectDate(BuildContext context, bool isStart) async {
     final DateTime? picked = await showDatePicker(
@@ -37,9 +120,9 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: kPrimaryOrange, // Header background color
-              onPrimary: Colors.white, // Header text color
-              onSurface: kTextDark, // Body text color
+              primary: kPrimaryOrange,
+              onPrimary: Colors.white,
+              onSurface: kTextDark,
             ),
           ),
           child: child!,
@@ -58,11 +141,10 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   }
 
   void _applyFilter() {
-    // Implement your actual filtering logic here (e.g., call an API or filter the list locally)
-    print("Filtering with: Start: $_startDate, End: $_endDate, Sort: $_sortBy, Area: $_selectedArea");
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Filter Applied: $_sortBy in $_selectedArea'), backgroundColor: kPrimaryOrange, duration: const Duration(seconds: 1)),
-    );
+    setState(() {
+      _currentPage = 0; // UPDATED: Reset to 0
+    });
+    _fetchData();
   }
 
   @override
@@ -74,7 +156,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- Header (Add Button Removed) ---
+            // --- Header ---
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
@@ -85,7 +167,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
             ),
             const SizedBox(height: 24),
 
-            // --- Filter Card (Fully Functional) ---
+            // --- Filter Card ---
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
@@ -103,7 +185,6 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      // Start Date Picker
                       Expanded(
                         child: _buildDatePickerField(
                           label: 'Start Date', 
@@ -112,7 +193,6 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      // End Date Picker
                       Expanded(
                         child: _buildDatePickerField(
                           label: 'End Date', 
@@ -121,7 +201,6 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      // Sort Dropdown
                       Expanded(
                         child: _buildDropdownField(
                           label: 'Sort By',
@@ -131,7 +210,6 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      // Area Dropdown
                       Expanded(
                         child: _buildDropdownField(
                           label: 'Area',
@@ -141,7 +219,6 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      // Filter Button
                       Expanded(
                         child: SizedBox(
                           height: 48,
@@ -198,7 +275,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                                 );
                               }).toList(),
                             ),
-                            Text('Total Customers: 128', style: TextStyle(color: kTextLight, fontWeight: FontWeight.bold)),
+                            Text('Total Customers: $_totalElements', style: const TextStyle(color: kTextLight, fontWeight: FontWeight.bold)),
                           ],
                         ),
                         const SizedBox(height: 20),
@@ -206,6 +283,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                           children: [
                             Expanded(
                               child: TextField(
+                                controller: TextEditingController(), // Consider managing this if you need search text state
                                 decoration: InputDecoration(
                                   hintText: 'Search by name, email or phone...',
                                   prefixIcon: const Icon(Icons.search, color: kTextLight),
@@ -214,11 +292,12 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
                                 ),
+                                onSubmitted: (value) => _applyFilter(), 
                               ),
                             ),
                             const SizedBox(width: 12),
                             ElevatedButton(
-                              onPressed: () {},
+                              onPressed: _applyFilter,
                               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E293B), padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                               child: const Text('Search', style: TextStyle(color: Colors.white)),
                             ),
@@ -254,116 +333,204 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                   const Divider(height: 1, color: kBorderColor),
 
                   // Table Rows
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: mockCustomers.length,
-                    separatorBuilder: (ctx, i) => const Divider(height: 1, color: kBorderColor),
-                    itemBuilder: (context, index) {
-                      final customer = mockCustomers[index];
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        color: Colors.white,
-                        child: Row(
+                  if (_isLoading)
+                      const Padding(
+                        padding: EdgeInsets.all(40.0),
+                        child: Center(child: CircularProgressIndicator(color: kPrimaryOrange)),
+                      )
+                  else if (_errorMessage.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(40.0),
+                        child: Center(child: Text("Error: $_errorMessage", style: const TextStyle(color: Colors.red))),
+                      )
+                  else if (_customers.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(40.0),
+                        child: Center(child: Text("No customers found")),
+                      )
+                  else
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _customers.length,
+                      separatorBuilder: (ctx, i) => const Divider(height: 1, color: kBorderColor),
+                      itemBuilder: (context, index) {
+                        final customer = _customers[index];
+                        // UPDATED: SL Calculation for 0-based page
+                        final serialNumber = ((_currentPage) * _pageSize) + index + 1;
+                        
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          color: Colors.white,
+                          child: Row(
+                            children: [
+                              SizedBox(width: 40, child: Text('$serialNumber', style: const TextStyle(color: kTextLight))),
+                              Expanded(
+                                flex: 2,
+                                child: Row(
+                                  children: [
+                                    if(customer.imgLink != null && customer.imgLink!.isNotEmpty)
+                                      CircleAvatar(
+                                        backgroundImage: NetworkImage(customer.imgLink!), 
+                                        radius: 14,
+                                        onBackgroundImageError: (_,__) {}, 
+                                      )
+                                    else
+                                      CircleAvatar(
+                                        backgroundColor: Color(int.parse(customer.avatarColor)), 
+                                        radius: 14, 
+                                        child: Text(
+                                          customer.name.isNotEmpty ? customer.name[0].toUpperCase() : 'U', 
+                                          style: const TextStyle(fontSize: 10, color: kTextDark)
+                                        )
+                                      ),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: Text(customer.name, style: const TextStyle(fontWeight: FontWeight.w600, color: kTextDark), overflow: TextOverflow.ellipsis,)),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(customer.email, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: kTextDark)),
+                                    Text(customer.phone, style: const TextStyle(fontSize: 12, color: kTextLight)),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                flex: 1,
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(color: kBgColor, borderRadius: BorderRadius.circular(4)),
+                                      child: Text('${customer.bookings}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(customer.joinedDate, style: const TextStyle(fontSize: 13, color: kTextDark)),
+                                    Text(customer.location, style: const TextStyle(fontSize: 12, color: kTextLight)),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                flex: 1,
+                                child: Switch(
+                                  value: customer.isActive,
+                                  activeColor: Colors.white,
+                                  activeTrackColor: kPrimaryOrange,
+                                  onChanged: (v) {
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Status update API not integrated yet")));
+                                  },
+                                ),
+                              ),
+                              Expanded(
+                                flex: 1,
+                                child: Row(
+                                  children: [
+                                    _ActionButton(
+                                      icon: Icons.edit_outlined, 
+                                      color: kPrimaryOrange,
+                                      onTap: () {
+                                        if (widget.onEditCustomer != null) {
+                                          widget.onEditCustomer!(customer);
+                                        }
+                                      },
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _ActionButton(
+                                      icon: Icons.visibility_outlined, 
+                                      color: kTextLight, 
+                                      onTap: () {
+                                         if(widget.onViewCustomer != null) {
+                                            widget.onViewCustomer!(customer); 
+                                         }
+                                      }, 
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  
+                  // --- UPDATED FOOTER WITH DYNAMIC PAGE NUMBERS ---
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          // UPDATED TEXT LOGIC for 0-based
+                          'Showing ${(_currentPage * _pageSize) + 1} to ${(_currentPage * _pageSize) + _customers.length} of $_totalElements entries', 
+                          style: const TextStyle(color: kTextLight, fontSize: 13)
+                        ),
+                        Row(
                           children: [
-                            SizedBox(width: 40, child: Text('${index + 1}', style: const TextStyle(color: kTextLight))),
-                            Expanded(
-                              flex: 2,
-                              child: Text(customer.name, style: const TextStyle(fontWeight: FontWeight.w600, color: kTextDark)),
-                              // Circular avatar removed here
+                            // Previous Button
+                            OutlinedButton(
+                              onPressed: _currentPage > 0 
+                                ? () => _onPageChanged(_currentPage - 1) 
+                                : null, 
+                              child: const Text('Prev', style: TextStyle(color: kTextLight))
                             ),
-                            Expanded(
-                              flex: 2,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(customer.email, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: kTextDark)),
-                                  Text(customer.phone, style: const TextStyle(fontSize: 12, color: kTextLight)),
-                                ],
+                            
+                            const SizedBox(width: 8),
+                            
+                            // Dynamic Page Number Strip
+                            Container(
+                              height: 32,
+                              alignment: Alignment.center,
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                scrollDirection: Axis.horizontal,
+                                itemCount: _totalPages,
+                                separatorBuilder: (_,__) => const SizedBox(width: 4),
+                                itemBuilder: (context, index) {
+                                  final isSelected = index == _currentPage;
+                                  return InkWell(
+                                    onTap: () => _onPageChanged(index),
+                                    child: Container(
+                                      width: 32, 
+                                      height: 32,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? kPrimaryOrange : Colors.transparent, 
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: isSelected ? null : Border.all(color: kBorderColor)
+                                      ),
+                                      // Show 1-based index to user (index + 1)
+                                      child: Text('${index + 1}', style: TextStyle(color: isSelected ? Colors.white : kTextDark)),
+                                    ),
+                                  );
+                                },
                               ),
                             ),
-                            Expanded(
-                              flex: 1,
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(color: kBgColor, borderRadius: BorderRadius.circular(4)),
-                                    child: Text('${customer.bookings}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(customer.joinedDate, style: const TextStyle(fontSize: 13, color: kTextDark)),
-                                  Text(customer.location, style: const TextStyle(fontSize: 12, color: kTextLight)),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              flex: 1,
-                              child: Switch(
-                                value: customer.isActive,
-                                activeColor: Colors.white,
-                                activeTrackColor: kPrimaryOrange,
-                                onChanged: (v) {},
-                              ),
-                            ),
-                            Expanded(
-                              flex: 1,
-                              child: Row(
-                                children: [
-                                  _ActionButton(
-                                    icon: Icons.edit_outlined, 
-                                    color: kPrimaryOrange,
-                                    onTap: widget.onEditCustomer ?? () {},
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _ActionButton(icon: Icons.delete_outline, color: Colors.red.shade400, onTap: () {}),
-                                  const SizedBox(width: 8),
-_ActionButton(
-                                    icon: Icons.visibility_outlined, 
-                                    color: kTextLight, 
-                                    onTap: widget.onViewCustomer ?? () {}, 
-                                  ),                                ],
-                              ),
+
+                            const SizedBox(width: 8),
+                            
+                            // Next Button
+                            OutlinedButton(
+                              onPressed: _currentPage < _totalPages - 1 
+                                ? () => _onPageChanged(_currentPage + 1) 
+                                : null,
+                              child: const Text('Next', style: TextStyle(color: kTextLight))
                             ),
                           ],
-                        ),
-                      );
-                    },
-                  ),
-                  
-                  // Footer Pagination
-                  Padding(
-                     padding: const EdgeInsets.all(20),
-                     child: Row(
-                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                       children: [
-                         const Text('Showing 1-4 of 128 entries', style: TextStyle(color: kTextLight, fontSize: 13)),
-                         Row(
-                           children: [
-                             OutlinedButton(onPressed: (){}, child: const Text('Prev', style: TextStyle(color: kTextLight))),
-                             const SizedBox(width: 8),
-                             Container(
-                               width: 32, height: 32,
-                               alignment: Alignment.center,
-                               decoration: BoxDecoration(color: kPrimaryOrange, borderRadius: BorderRadius.circular(4)),
-                               child: const Text('1', style: TextStyle(color: Colors.white)),
-                             ),
-                             const SizedBox(width: 8),
-                             OutlinedButton(onPressed: (){}, child: const Text('2', style: TextStyle(color: kTextLight))),
-                             const SizedBox(width: 8),
-                             OutlinedButton(onPressed: (){}, child: const Text('Next', style: TextStyle(color: kTextLight))),
-                           ],
-                         )
-                       ],
-                     ),
-                  )
+                        )
+                      ],
+                    ),
+                   )
                 ],
               ),
             ),
@@ -373,7 +540,7 @@ _ActionButton(
     );
   }
 
-  // --- Helper Widgets for Filtering ---
+  // --- Helper Widgets ---
 
   Widget _buildDatePickerField({required String label, DateTime? selectedDate, required VoidCallback onTap}) {
     return Column(
@@ -470,42 +637,6 @@ class _ActionButton extends StatelessWidget {
     );
   }
 }
-
-// =============================================================================
-// MODELS & CONSTANTS
-// =============================================================================
-
-class Customer {
-  final String id;
-  final String name;
-  final String email;
-  final String phone;
-  final int bookings;
-  final String joinedDate;
-  final String location;
-  final bool isActive;
-  final String avatarColor; 
-
-  Customer({
-    required this.id,
-    required this.name,
-    required this.email,
-    required this.phone,
-    required this.bookings,
-    required this.joinedDate,
-    required this.location,
-    required this.isActive,
-    required this.avatarColor,
-  });
-}
-
-// --- Mock Data ---
-final List<Customer> mockCustomers = [
-  Customer(id: '1', name: 'Aarav Kumar', email: 'aarav.k@gmail.com', phone: '+91 98765 43210', bookings: 12, joinedDate: '15 Jan, 2024', location: 'Gomti Nagar', isActive: true, avatarColor: '0xFFFFF3E0'),
-  Customer(id: '2', name: 'Priya Singh', email: 'priya.singh88@gmail.com', phone: '+91 88901 23456', bookings: 5, joinedDate: '22 Feb, 2024', location: 'Hazratganj', isActive: true, avatarColor: '0xFFE3F2FD'),
-  Customer(id: '3', name: 'Rohan Verma', email: 'rohan.v@chayankaro.com', phone: '+91 76543 21098', bookings: 0, joinedDate: '01 Mar, 2024', location: 'Aliganj', isActive: false, avatarColor: '0xFFE8F5E9'),
-  Customer(id: '4', name: 'Ananya Gupta', email: 'ananya.g@gmail.com', phone: '+91 99887 76655', bookings: 8, joinedDate: '10 Mar, 2024', location: 'Indira Nagar', isActive: true, avatarColor: '0xFFF3E5F5'),
-];
 
 // --- Constants ---
 const Color kPrimaryOrange = Color(0xFFFF6B00); 
