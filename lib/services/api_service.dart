@@ -1,11 +1,17 @@
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
+import 'package:dio/dio.dart' as dio;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http_parser/http_parser.dart'; 
 import 'package:mime/mime.dart'; 
 import '../models/location_model.dart';
 import '../models/data_models.dart';
 import 'dart:convert'; // Required for jsonEncode
+import 'dart:io';
+import '../models/document_type_model.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // To check web
+import 'package:file_picker/file_picker.dart'; // Import this
+import '../models/bank_model.dart';
 
 class ApiService {
   // NO trailing slash
@@ -40,7 +46,27 @@ class ApiService {
       }
     ));
   }
+Future<dio.MultipartFile> getMultipart(PlatformFile file) async {
+    // Determine Mime Type (e.g., 'image/png')
+    // Defaults to 'image/jpeg' if detection fails to ensure backend accepts it
+    final mimeTypeStr = lookupMimeType(file.name) ?? 'image/jpeg';
+    final mimeSplit = mimeTypeStr.split('/');
+    final mediaType = MediaType(mimeSplit[0], mimeSplit[1]);
 
+    if (kIsWeb) {
+      return dio.MultipartFile.fromBytes(
+        file.bytes!,
+        filename: file.name,
+        contentType: mediaType, // Explicit Content-Type for Web
+      );
+    } else {
+      return dio.MultipartFile.fromFile(
+        file.path!,
+        filename: file.name,
+        contentType: mediaType, // Explicit Content-Type for Mobile
+      );
+    }
+  }
   // --- HELPER ---
   Future<MultipartFile?> _prepareFile(Uint8List? fileBytes, String? fileName) async {
     if (fileBytes == null || fileName == null) return null;
@@ -259,4 +285,257 @@ Future<dynamic> getAllCustomers({required int page, required int size}) async {
       rethrow; // Pass error to repo for handling
     }
   }
+  // inside api_service.dart
+
+  // --- BUFFER CONFIGURATION ---
+  Future<dynamic> addBufferTime(Map<String, dynamic> configData) async {
+    try {
+      // POST request to the specific endpoint
+      final response = await _dio.post('/admin/addBufferTime', data: configData);
+      return response.data;
+    } catch (e) {
+      print("API Error (Add Buffer Time): $e");
+      rethrow; // Pass error to repo
+    }
+  }
+  // 1. Onboard Provider (Get SP ID)
+ Future<String?> onboardServiceProvider(String mobileNo) async {
+    try {
+      final response = await _dio.post('/admin/onboardServiceProvider', data: {"mobileNo": mobileNo});
+      final data = response.data;
+      // Handle structure { "result": { "id": "..." } } or { "id": "..." }
+      if (data['result'] != null && data['result'] is Map && data['result']['id'] != null) {
+        return data['result']['id'];
+      }
+      return data['id']; // Fallback
+    } catch (e) {
+      throw Exception("Onboard Error: ${e.toString()}");
+    }
+  }
+
+// In services/api_service.dart
+
+Future<bool> addPersonalDetails(Map<String, dynamic> data) async {
+  try {
+    print("📤 Sending Personal Details: $data"); // Debug print
+    
+    final response = await _dio.post('/admin/addSpPersonalDetails', data: data);
+    
+    print("✅ API Response: ${response.statusCode}");
+    return response.statusCode == 200 || response.statusCode == 201;
+  } catch (e) {
+    print("❌ API ERROR:"); 
+    if (e is dio.DioException) {
+      print("Status: ${e.response?.statusCode}");
+      print("Data: ${e.response?.data}"); // This usually contains the specific validation error
+    } else {
+      print(e.toString());
+    }
+    return false; // Now you know why it returned false
+  }
+}
+
+ Future<bool> addAddress(Map<String, dynamic> data) async {
+  try {
+    print("📤 Sending Address Data: $data"); // See exactly what you are sending
+    
+    final response = await _dio.post('/admin/addSpAddress', data: data);
+    
+    print("✅ Address API Success: ${response.statusCode}");
+    return response.statusCode == 200 || response.statusCode == 201;
+  } catch (e) {
+    print("❌ Address API Failed:");
+    if (e is dio.DioException) {
+      print("Status: ${e.response?.statusCode}");
+      print("Response Body: ${e.response?.data}"); // This tells you WHY it failed (e.g. invalid pincode)
+    } else {
+      print("Error: $e");
+    }
+    return false;
+  }
+}
+  // Add this to your api_service.dart
+Future<bool> mapProviderLocation(Map<String, dynamic> data) async {
+  try {
+    // Replace '/admin/providerLocationMap' with your actual full endpoint path if needed
+    final response = await _dio.post('/admin/providerLocationMap', data: data);
+    return response.statusCode == 200 || response.statusCode == 201;
+  } catch (e) {
+    print("Error mapping location: $e");
+    return false; // Or rethrow based on your error handling preference
+  }
+}
+
+  Future<bool> mapProviderService(String spId, String catId, String srvId) async {
+    try {
+      await _dio.post('/admin/providerServiceMap', data: {
+        "serviceProviderId": spId,
+        "categoryId": catId,
+        "serviceId": srvId
+      });
+      return true;
+    } catch (e) { return false; }
+  }
+
+// ---------------------------------------------------------------------------
+ Future<bool> addBankDetails({
+    required String spId,
+    required String bankId,
+    required String accountHolderName,
+    required String accountNo,
+    required String ifscCode,
+    required String upiId,
+    required bool isPanAvailable,
+    required String panNo,
+    required dio.FormData formData,
+  }) async {
+    try {
+      print("🚀 Sending Bank Details...");
+      
+      // Sanitize inputs (remove accidental newlines which appeared in your logs)
+      final cleanHolderName = accountHolderName.trim().replaceAll('\n', ' ');
+
+      final response = await _dio.post(
+        '/admin/addBankDetails',
+        data: formData,
+        // CRITICAL FIX: Set Content-Type to null. 
+        // This removes 'application/json' and lets Dio generate 
+        // 'multipart/form-data; boundary=jhdfg78...' automatically.
+        options: Options(
+          headers: {
+            "Content-Type": null, 
+          },
+        ),
+        queryParameters: {
+          "spId": spId,
+          "bankId": bankId,
+          "accountHolderName": cleanHolderName,
+          "accountNo": accountNo.trim(),
+          "ifscCode": ifscCode.trim(),
+          "upiId": upiId.trim(),
+          "isPanAvailable": isPanAvailable,
+          "panNo": panNo.trim(),
+        },
+      );
+
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      if (e is dio.DioException) {
+        print("❌ addBankDetails URL: ${e.requestOptions.uri}");
+        print("❌ Headers Sent: ${e.requestOptions.headers}"); // Check if boundary exists
+        print("❌ addBankDetails error: ${e.response?.data}");
+      }
+      return false;
+    }
+  }
+
+  Future<bool> addSpDocument(FormData formData) async {
+    try {
+      await _dio.post('/admin/addSpDocument', data: formData);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // 1. Fetch All Document Types
+Future<List<DocumentTypeModel>> getDocumentTypes() async {
+  try {
+    final response = await _dio.get('/admin/getDocumentType');
+    if (response.statusCode == 200 && response.data['result'] != null) {
+      List<dynamic> list = response.data['result'];
+      return list.map((e) => DocumentTypeModel.fromJson(e)).toList();
+    }
+    return [];
+  } catch (e) {
+    print("Error fetching doc types: $e");
+    return [];
+  }
+}
+
+// 2. Upload Single Document
+Future<bool> uploadSpDocument({
+    required String spId, 
+    required String docTypeId, 
+    required PlatformFile file 
+  }) async {
+    try {
+      // 1. Prepare the File (Web vs Mobile)
+      dio.MultipartFile multipartFile;
+
+      if (kIsWeb) {
+        // Web: Use Bytes
+        multipartFile = dio.MultipartFile.fromBytes(
+          file.bytes!, 
+          filename: file.name
+        );
+      } else {
+        // Mobile: Use Path
+        multipartFile = await dio.MultipartFile.fromFile(
+          file.path!,
+          filename: file.name
+        );
+      }
+
+      // 2. Body: File goes here (key: 'file')
+      final formData = dio.FormData.fromMap({
+        "file": multipartFile, 
+      });
+
+      // 3. URL: IDs go here
+      final queryParams = {
+        "documentTypeId": docTypeId,
+        "spId": spId
+      };
+
+      print("📤 Uploading: $queryParams");
+
+      final response = await _dio.post(
+  '/admin/addSpDocument',
+  data: formData,
+  queryParameters: queryParams,
+);
+
+print("✅ Upload response: ${response.statusCode}");
+print("📦 Response data: ${response.data}");
+
+return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print("❌ Upload Failed: $e");
+      if (e is dio.DioException) {
+         print("Server Response: ${e.response?.data}");
+      }
+      return false;
+    }
+  }
+  Future<List<dynamic>> getServiceProviderDocuments(String spId) async {
+  try {
+    final response = await _dio.get(
+      '/admin/getServiceProviderDocuments',
+      queryParameters: {
+        'serviceProviderId': spId,
+      },
+    );
+
+    print("📄 Existing docs response: ${response.data}");
+    return response.data['result'] ?? [];
+  } catch (e) {
+    print("❌ Fetch documents failed: $e");
+    return [];
+  }
+}
+Future<List<BankModel>> getAllBanks() async {
+  try {
+    // Replace with your actual Dio instance call
+    final response = await _dio.get('/admin/getAllBank'); 
+    
+    if (response.statusCode == 200 && response.data['result'] != null) {
+      final List<dynamic> list = response.data['result'];
+      return list.map((e) => BankModel.fromJson(e)).toList();
+    }
+    return [];
+  } catch (e) {
+    print("Error fetching banks: $e");
+    return [];
+  }
+}
+
 }

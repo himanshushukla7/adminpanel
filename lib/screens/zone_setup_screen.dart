@@ -4,19 +4,16 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../controllers/location_controller.dart';
 
 class LocationManagementScreen extends StatelessWidget {
-  // Use Get.find if you initialized it in bindings, or Get.put to inject it here
   final LocationController controller = Get.put(LocationController());
 
   @override
   Widget build(BuildContext context) {
-    // Basic colors extracted from the image
-    const Color primaryOrange = Color(0xFFF97316); 
+    const Color primaryOrange = Color(0xFFF97316);
     const Color bgGrey = Color(0xFFF3F4F6);
     const Color textGrey = Color(0xFF4B5563);
 
     return Scaffold(
-      backgroundColor: Colors.white, 
-      // We assume the Dashboard sidebar is handled by a parent widget
+      backgroundColor: Colors.white,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -41,9 +38,9 @@ class LocationManagementScreen extends StatelessWidget {
                   ],
                 ),
                 ElevatedButton.icon(
-                  onPressed: () { /* Export logic */ },
-                  icon: const Icon(Icons.download, size: 18),
-                  label: const Text("Export Data"),
+                  onPressed: () => _showJsonPayloadSidePanel(context),
+                  icon: const Icon(Icons.code, size: 18),
+                  label: const Text("JSON Payload"),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange.shade50,
                     foregroundColor: primaryOrange,
@@ -61,7 +58,7 @@ class LocationManagementScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               clipBehavior: Clip.antiAlias,
-              height: 550, // Fixed height for the editor area
+              height: 550,
               child: Row(
                 children: [
                   // LEFT: MAP (65% width)
@@ -82,23 +79,24 @@ class LocationManagementScreen extends StatelessWidget {
                           }
                           return GoogleMap(
                             initialCameraPosition: const CameraPosition(
-                              target: LatLng(26.8467, 80.9462), // Lucknow
+                              target: LatLng(26.8467, 80.9462),
                               zoom: 13,
                             ),
                             mapType: MapType.normal,
                             polygons: polygons,
                             markers: controller.mapMarkers.toSet(),
                             onTap: controller.addPolygonPoint,
+                            onMapCreated: controller.onMapCreated,
                             zoomControlsEnabled: false,
-                            myLocationButtonEnabled: false, // Custom button looks better
+                            myLocationButtonEnabled: false,
                           );
                         }),
-                        
+
                         // Floating Search Bar
                         Positioned(
                           top: 16,
                           left: 16,
-                          right: 80, // Leave space for map tools
+                          right: 16,
                           child: Container(
                             height: 45,
                             decoration: BoxDecoration(
@@ -109,32 +107,107 @@ class LocationManagementScreen extends StatelessWidget {
                               ],
                             ),
                             child: TextField(
+                              controller: controller.searchCtrl,
                               decoration: const InputDecoration(
                                 hintText: "Search Area by Name (e.g. Gomti Nagar)",
                                 prefixIcon: Icon(Icons.search),
                                 border: InputBorder.none,
                                 contentPadding: EdgeInsets.symmetric(vertical: 12),
                               ),
-                              onSubmitted: (val) { /* Implement Search Camera Move */ },
+                              onSubmitted: (val) => controller.searchAndMoveCamera(val),
                             ),
                           ),
                         ),
 
-                        // "Mode: Drawing" Badge
+                        // Bottom Control Bar (Zoom +/-, Delete, Pin Info)
                         Positioned(
                           bottom: 16,
                           left: 16,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(4),
-                              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                            ),
-                            child: const Text(
-                              "Mode: Drawing Polygon",
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                            ),
+                          right: 16,
+                          child: Row(
+                            children: [
+                              // Pin Count Badge
+                              Obx(() => Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.push_pin, size: 16, color: Colors.blue),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      "${controller.polygonPoints.length} points",
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                  ],
+                                ),
+                              )),
+                              const Spacer(),
+                              // Control Buttons
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                                ),
+                                child: Row(
+                                  children: [
+                                    // Zoom Out
+                                    IconButton(
+                                      icon: const Icon(Icons.remove, size: 20),
+                                      onPressed: controller.zoomOut,
+                                      tooltip: "Zoom Out",
+                                    ),
+                                    Container(
+                                      width: 1,
+                                      height: 24,
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    // Zoom In
+                                    IconButton(
+                                      icon: const Icon(Icons.add, size: 20),
+                                      onPressed: controller.zoomIn,
+                                      tooltip: "Zoom In",
+                                    ),
+                                    Container(
+                                      width: 1,
+                                      height: 24,
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    // Delete Last Point
+                                    Obx(() => IconButton(
+                                      icon: const Icon(Icons.undo, size: 20),
+                                      onPressed: controller.polygonPoints.isEmpty 
+                                          ? null 
+                                          : controller.undoLastPoint,
+                                      tooltip: "Undo Last Point",
+                                      color: controller.polygonPoints.isEmpty 
+                                          ? Colors.grey 
+                                          : Colors.orange,
+                                    )),
+                                    Container(
+                                      width: 1,
+                                      height: 24,
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    // Clear All
+                                    Obx(() => IconButton(
+                                      icon: const Icon(Icons.delete_outline, size: 20),
+                                      onPressed: controller.polygonPoints.isEmpty 
+                                          ? null 
+                                          : controller.clearPolygon,
+                                      tooltip: "Clear All Points",
+                                      color: controller.polygonPoints.isEmpty 
+                                          ? Colors.grey 
+                                          : Colors.red,
+                                    )),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -152,18 +225,17 @@ class LocationManagementScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text("Define New Location", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            const Text("Define New Location",
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 8),
                             const Text(
                               "Use the map tools to draw a service area, then fill in the details below.",
                               style: TextStyle(color: textGrey, fontSize: 13),
                             ),
                             const SizedBox(height: 24),
-
                             _buildLabel("AREA NAME"),
                             _buildStyledField(controller.areaNameCtrl, "e.g. Gomti Nagar Ext."),
                             const SizedBox(height: 16),
-
                             Row(
                               children: [
                                 Expanded(
@@ -188,11 +260,9 @@ class LocationManagementScreen extends StatelessWidget {
                               ],
                             ),
                             const SizedBox(height: 16),
-
                             _buildLabel("POST CODE"),
                             _buildStyledField(controller.pinCodeCtrl, "226010"),
                             const SizedBox(height: 16),
-
                             // Info Box
                             Container(
                               padding: const EdgeInsets.all(12),
@@ -214,7 +284,6 @@ class LocationManagementScreen extends StatelessWidget {
                               ),
                             ),
                             const Spacer(),
-
                             // Actions
                             SizedBox(
                               width: double.infinity,
@@ -250,15 +319,14 @@ class LocationManagementScreen extends StatelessWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: 40),
 
             // --- 3. LIST SECTION ---
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("Existing Locations", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                
+                const Text("Existing Locations",
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 // Search & Filter
                 Row(
                   children: [
@@ -266,18 +334,22 @@ class LocationManagementScreen extends StatelessWidget {
                       width: 250,
                       height: 40,
                       child: TextField(
+                        controller: controller.listSearchCtrl,
                         decoration: InputDecoration(
                           hintText: "Search locations...",
                           prefixIcon: const Icon(Icons.search, size: 20),
                           contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey.shade300)),
                         ),
+                        onChanged: (val) => controller.filterLocations(val),
                       ),
                     ),
                     const SizedBox(width: 10),
                     OutlinedButton.icon(
-                      onPressed: (){}, 
-                      icon: const Icon(Icons.filter_list, size: 18), 
+                      onPressed: () {},
+                      icon: const Icon(Icons.filter_list, size: 18),
                       label: const Text("Filter"),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.black87,
@@ -298,10 +370,11 @@ class LocationManagementScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Obx(() {
-                 if (controller.isLoading.value) {
-                   return const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator()));
-                 }
-                 return DataTable(
+                if (controller.isLoading.value) {
+                  return const Padding(
+                      padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator()));
+                }
+                return DataTable(
                   headingRowColor: MaterialStateProperty.all(bgGrey),
                   columns: const [
                     DataColumn(label: Text("SL", style: TextStyle(fontWeight: FontWeight.bold))),
@@ -311,8 +384,8 @@ class LocationManagementScreen extends StatelessWidget {
                     DataColumn(label: Text("STATE", style: TextStyle(fontWeight: FontWeight.bold))),
                     DataColumn(label: Text("ACTION", style: TextStyle(fontWeight: FontWeight.bold))),
                   ],
-                  rows: List.generate(controller.locationList.length, (index) {
-                    final loc = controller.locationList[index];
+                  rows: List.generate(controller.filteredLocationList.length, (index) {
+                    final loc = controller.filteredLocationList[index];
                     return DataRow(cells: [
                       DataCell(Text("${index + 1}".padLeft(2, '0'))),
                       DataCell(Column(
@@ -320,7 +393,8 @@ class LocationManagementScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(loc.areaName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          const Text("Geofence: Polygon", style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          const Text("Geofence: Polygon",
+                              style: TextStyle(fontSize: 11, color: Colors.grey)),
                         ],
                       )),
                       DataCell(Text(loc.postCode ?? '-')),
@@ -328,8 +402,12 @@ class LocationManagementScreen extends StatelessWidget {
                       DataCell(Text(loc.state ?? 'Uttar Pradesh')),
                       DataCell(Row(
                         children: [
-                          IconButton(icon: const Icon(Icons.edit, size: 18, color: Colors.orange), onPressed: (){}),
-                          IconButton(icon: const Icon(Icons.delete, size: 18, color: Colors.redAccent), onPressed: (){}),
+                          IconButton(
+                              icon: const Icon(Icons.edit, size: 18, color: Colors.orange),
+                              onPressed: () {}),
+                          IconButton(
+                              icon: const Icon(Icons.delete, size: 18, color: Colors.redAccent),
+                              onPressed: () {}),
                         ],
                       )),
                     ]);
@@ -344,25 +422,196 @@ class LocationManagementScreen extends StatelessWidget {
     );
   }
 
-  // Helper for Labels
+  void _showJsonPayloadSidePanel(BuildContext context) {
+    final payload = controller.generateJsonPayload();
+    
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "JSON Payload",
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: Material(
+            elevation: 8,
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.35,
+              height: MediaQuery.of(context).size.height,
+              color: Colors.white,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF97316).withOpacity(0.1),
+                      border: Border(
+                        bottom: BorderSide(color: Colors.grey.shade200),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(Icons.code, color: Color(0xFFF97316), size: 24),
+                            SizedBox(width: 12),
+                            Text(
+                              "JSON Payload",
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Description
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      "Current form data in JSON format. Empty fields are shown as null.",
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+
+                  // JSON Content
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1E1E),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: SingleChildScrollView(
+                        child: SelectableText(
+                          payload,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 13,
+                            color: Color(0xFFD4D4D4),
+                            height: 1.6,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Action Buttons
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(color: Colors.grey.shade200),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          height: 45,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.copy),
+                            label: const Text("Copy to Clipboard"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFF97316),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: () {
+                              controller.copyPayloadToClipboard();
+                              Get.snackbar(
+                                "Copied",
+                                "JSON payload copied to clipboard",
+                                backgroundColor: Colors.green,
+                                colorText: Colors.white,
+                                margin: const EdgeInsets.all(16),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 45,
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.refresh),
+                            label: const Text("Refresh"),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.black87,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              side: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _showJsonPayloadSidePanel(context);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: anim1,
+            curve: Curves.easeInOut,
+          )),
+          child: child,
+        );
+      },
+    );
+  }
+
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF9CA3AF), letterSpacing: 0.5),
+        style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF9CA3AF),
+            letterSpacing: 0.5),
       ),
     );
   }
 
-  // Helper for Input Fields (Grey Background style)
   Widget _buildStyledField(TextEditingController ctrl, String hint) {
     return TextFormField(
       controller: ctrl,
       decoration: InputDecoration(
         hintText: hint,
         filled: true,
-        fillColor: const Color(0xFFF9FAFB), // Very light grey
+        fillColor: const Color(0xFFF9FAFB),
         hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(

@@ -181,11 +181,7 @@ class _CustomerUpdateScreenState extends State<CustomerUpdateScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text('Saved Addresses', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kTextDark)),
-                                  TextButton.icon(
-                                    onPressed: (){}, 
-                                    icon: const Icon(Icons.add, size: 16, color: kPrimaryOrange),
-                                    label: const Text('Add New', style: TextStyle(color: kPrimaryOrange, fontWeight: FontWeight.bold)),
-                                  )
+                                 
                                 ],
                               ),
                               const SizedBox(height: 8),

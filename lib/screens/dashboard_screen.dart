@@ -42,6 +42,8 @@ import 'provider_list_screen.dart';
 import 'provider_add_screen.dart';
 import 'provider_onboarding_request_screen.dart';
 import '../models/customer_models.dart';
+import 'buffer_config_screen.dart';
+import 'holiday_management_screen.dart'; // <--- IMPORT THE NEW SCREEN
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -257,13 +259,15 @@ onEditCustomer: (customer) {
         return const SendNotificationScreen(); 
       case 'zone/map':
         return  LocationManagementScreen(); 
-      
+      case 'zone/bufferadd':
+        return const BufferConfigScreen();
+
       // --- PROVIDERS ---
       case 'provider/list':  
         return ProviderListScreen();
       case 'provider/add':  
         return AddProviderScreen(
-          data: _selectedOnboardingRequest, 
+          //data: _selectedOnboardingRequest, 
           onBack: () {
              setState(() {
                _currentRoute = 'provider/onboarding'; 
@@ -281,6 +285,8 @@ onEditCustomer: (customer) {
             });
           },
         );
+      case 'provider/holidays': // Matches the route used in the NavTile
+        return HolidayManagementScreen();
 
       default:
         return const DashboardHome();

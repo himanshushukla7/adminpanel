@@ -12,7 +12,7 @@ class BookingResponse {
   factory BookingResponse.fromJson(Map<String, dynamic> json) {
     final result = json['result'] ?? {};
     final contentList = result['content'] as List? ?? [];
-    
+
     return BookingResponse(
       content: contentList.map((e) => BookingModel.fromJson(e)).toList(),
       totalPages: result['totalPages'] ?? 0,
@@ -30,7 +30,13 @@ class BookingModel {
   final String status;
   final String paymentStatus;
   final String paymentMode;
-  final int bookingPin; // --- ADDED THIS FIELD ---
+  final int bookingPin;
+  
+  // Added extra fields from your JSON that might be useful
+  final String rescheduleReason;
+  final String cancelReason;
+  final String cancelledBy;
+
   final CustomerAddress? address;
   final ServiceProvider? provider;
   final CustomerDetails? customerDetails;
@@ -45,7 +51,10 @@ class BookingModel {
     required this.status,
     required this.paymentStatus,
     required this.paymentMode,
-    required this.bookingPin, // --- ADDED TO CONSTRUCTOR ---
+    required this.bookingPin,
+    required this.rescheduleReason,
+    required this.cancelReason,
+    required this.cancelledBy,
     this.address,
     this.provider,
     this.customerDetails,
@@ -59,23 +68,25 @@ class BookingModel {
       bookingDate: json['bookingDate']?.toString() ?? '',
       bookingTime: json['bookingTime']?.toString() ?? '',
       creationTime: json['creationTime']?.toString() ?? '',
-      status: json['status']?.toString() ?? 'Pending', 
+      status: json['status']?.toString() ?? 'Pending',
       paymentStatus: json['paymentStatus']?.toString() ?? 'UnPaid',
       paymentMode: json['paymentMode']?.toString() ?? 'N/A',
+      bookingPin: (json['bookingPin'] as num?)?.toInt() ?? 0,
       
-      // --- ADDED PARSING LOGIC ---
-      bookingPin: (json['bookingPin'] as num?)?.toInt() ?? 0, 
-      
-      address: json['customerAddress'] != null 
-          ? CustomerAddress.fromJson(json['customerAddress']) 
+      // Parsing new helpful fields
+      rescheduleReason: json['rescheduleReason']?.toString() ?? '',
+      cancelReason: json['cancelReason']?.toString() ?? '',
+      cancelledBy: json['cancelledBy']?.toString() ?? '',
+
+      address: json['customerAddress'] != null
+          ? CustomerAddress.fromJson(json['customerAddress'])
           : null,
-      provider: json['serviceProvider'] != null 
-          ? ServiceProvider.fromJson(json['serviceProvider']) 
+      provider: json['serviceProvider'] != null
+          ? ServiceProvider.fromJson(json['serviceProvider'])
           : null,
-      customerDetails: json['customerDetails'] != null 
-          ? CustomerDetails.fromJson(json['customerDetails']) 
+      customerDetails: json['customerDetails'] != null
+          ? CustomerDetails.fromJson(json['customerDetails'])
           : null,
-      
       services: (json['bookingService'] as List? ?? [])
           .map((e) => BookingService.fromJson(e))
           .toList(),
@@ -110,7 +121,11 @@ class CustomerDetails {
   final String lastName;
   final String mobileNo;
 
-  CustomerDetails({required this.firstName, required this.lastName, required this.mobileNo});
+  CustomerDetails({
+    required this.firstName,
+    required this.lastName,
+    required this.mobileNo,
+  });
 
   factory CustomerDetails.fromJson(Map<String, dynamic> json) {
     return CustomerDetails(
@@ -122,43 +137,84 @@ class CustomerDetails {
 }
 
 class CustomerAddress {
-  final String city;
+  final String id;
   final String addressLine1;
+  final String addressLine2;
+  final String city;
+  final String state;
+  final String postCode;
+  final String geoBoundary;
 
-  CustomerAddress({required this.city, required this.addressLine1});
+  CustomerAddress({
+    required this.id,
+    required this.addressLine1,
+    required this.addressLine2,
+    required this.city,
+    required this.state,
+    required this.postCode,
+    required this.geoBoundary,
+  });
 
   factory CustomerAddress.fromJson(Map<String, dynamic> json) {
     return CustomerAddress(
-      city: json['city']?.toString() ?? '',
+      id: json['id']?.toString() ?? '',
       addressLine1: json['addressLine1']?.toString() ?? '',
+      addressLine2: json['addressLine2']?.toString() ?? '',
+      city: json['city']?.toString() ?? '',
+      state: json['state']?.toString() ?? '',
+      postCode: json['postCode']?.toString() ?? '',
+      geoBoundary: json['geoBoundary']?.toString() ?? '',
     );
+  }
+
+  // Helper to get a single string for UI
+  String get fullFormattedAddress {
+    List<String> parts = [addressLine1, addressLine2, city, state, postCode];
+    // Remove empty strings and join with comma
+    return parts.where((p) => p.isNotEmpty).join(', ');
   }
 }
 
 class ServiceProvider {
+  final String id;
   final String firstName;
   final String lastName;
   final String mobile;
+  final String gender;
 
-  ServiceProvider({required this.firstName, required this.lastName, required this.mobile});
+  ServiceProvider({
+    required this.id,
+    required this.firstName,
+    required this.lastName,
+    required this.mobile,
+    required this.gender,
+  });
 
   factory ServiceProvider.fromJson(Map<String, dynamic> json) {
     return ServiceProvider(
+      id: json['id']?.toString() ?? '',
       firstName: json['firstName']?.toString() ?? '',
       lastName: json['lastName']?.toString() ?? '',
       mobile: json['mobileNo']?.toString() ?? '',
+      gender: json['gender']?.toString() ?? '',
     );
   }
 }
 
 class BookingService {
+  final String id;
   final String serviceName;
   final double price;
 
-  BookingService({required this.serviceName, required this.price});
+  BookingService({
+    required this.id,
+    required this.serviceName,
+    required this.price,
+  });
 
   factory BookingService.fromJson(Map<String, dynamic> json) {
     return BookingService(
+      id: json['id']?.toString() ?? '',
       serviceName: json['serviceIName']?.toString() ?? '',
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
     );

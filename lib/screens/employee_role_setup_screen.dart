@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class EmployeeRoleSetupScreen extends StatefulWidget {
-  final VoidCallback? onBack; // <--- 1. Add this variable
+  final VoidCallback? onBack; 
   const EmployeeRoleSetupScreen({super.key, this.onBack});
 
   @override
@@ -14,53 +14,53 @@ class _EmployeeRoleSetupScreenState extends State<EmployeeRoleSetupScreen> {
   // ---------------------------------------------------------------------------
   final TextEditingController _roleNameController = TextEditingController(text: "Jr. Digital Marketer");
 
-  // This map holds the state of our permissions.
-  // Structure: 'Section Title' -> { 'Permission Name': bool_is_checked }
+  // Updated Structure to match DashboardSidebar exactly
   final Map<String, Map<String, bool>> _permissions = {
+    // Single Item in Sidebar, treated as a section here
     'Dashboard': {
-      'Dashboard': false,
+      'Access Dashboard': true,
     },
     'Booking Management': {
-      'Booking Management': false,
-    },
-    'System Addon': {
-      'System Addon': false,
-    },
-    'Promotion Management': {
-      'Discounts': true,
-      'Coupons': true,
-      'Wallet Bonus': true,
-      'Campaigns': true,
-      'Advertisements': true,
-      'Promotional Banners': true,
-    },
-    'Notification Management': {
-      'Send Push Notification': true,
-      'Notification Messages': false,
-      'Notification Channel': false,
-    },
-    'Provider Management': {
-      'Onboarding Request': false,
-      'Providers': false,
-      'Withdraws': false,
+      'Offline Payment': false,
+      'Ongoing': false,
+      'Completed': false,
+      'Canceled': false,
     },
     'Service Management': {
-      'Service Zones Setup': false,
-      'Categories': false,
-      'Services': false,
+      'Zone Setup (Map & Buffer)': false,
+      'Category Setup': false,
+      'Service List': false,
+      'Add New Service': false,
     },
-    'Customer Management': {
-      'Customers': false,
-      'Newsletter Subscribed Users': false,
+    'Provider Management': {
+      'Provider List': false,
+      'Add Provider': false,
+      'Onboarding Requests': false,
+    },
+    'User Management': {
+      'Customer List': false,
+    },
+    'Transaction & Analytics': {
+      'Transaction Report': false,
+      'Booking Report': false,
+      'Provider Report': false,
+      'Keyword Search': false,
+    },
+    'Promotion Management': {
+      'Promotion Banners': true,
+      'Discount List': true,
+      'Add Discount': true,
+      'Coupon List': true,
+      'Add Coupon': true,
+    },
+    'Notification Management': {
+      'Send Notification': true,
+      'Push Notifications': true,
     },
     'Employee Management': {
       'Employee Role Setup': false,
       'Employee List': false,
-    },
-    'Transaction And Report Management': {
-      'Transaction': false,
-      'Reports': false,
-      'Analytics': false,
+      'Add New Employee': false,
     },
   };
 
@@ -110,21 +110,45 @@ class _EmployeeRoleSetupScreenState extends State<EmployeeRoleSetupScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    const Text(
-                      "Employee Role Setup",
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1A1D1F)),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "Configure user roles and permissions for the Chayankaro admin panel.",
-                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                    if (widget.onBack != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 12.0),
+                        child: IconButton(
+                          onPressed: widget.onBack, 
+                          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+                          tooltip: 'Back',
+                        ),
+                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Employee Role Setup",
+                          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1A1D1F)),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          "Configure user roles and permissions for the Chayankaro admin panel.",
+                          style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                IconButton(onPressed: () {}, icon: const Icon(Icons.settings, color: Colors.grey)),
+                // Global Save Button Top Right
+                ElevatedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.save_outlined, size: 18),
+                  label: const Text("Save Role"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF6B00),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 24),
@@ -152,6 +176,7 @@ class _EmployeeRoleSetupScreenState extends State<EmployeeRoleSetupScreen> {
                       hintText: "Ex: Manager, Editor...",
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
                       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFFF6B00))),
                       contentPadding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                   ),
@@ -185,29 +210,24 @@ class _EmployeeRoleSetupScreenState extends State<EmployeeRoleSetupScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // 3. Top Row (Single Items: Dashboard, Booking, Addon)
-                  // These are special cases in the design (single items in a row)
-                  Row(
-                    children: [
-                      Expanded(child: _buildSinglePermissionCard("Dashboard", "Dashboard")),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildSinglePermissionCard("Booking Management", "Booking Management")),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildSinglePermissionCard("System Addon", "System Addon")),
-                    ],
-                  ),
+                  // 3. Dashboard Access (Top Single Card)
+                  _buildSinglePermissionCard("Dashboard", "Access Dashboard"),
                   const SizedBox(height: 24),
 
-                  // 4. Detailed Permission Sections
-                  _buildSection("Promotion Management"),
-                  _buildSection("Notification Management"),
-                  _buildSection("Provider Management"),
-                  _buildSection("Service Management"),
-                  _buildSection("Customer Management"),
-                  _buildSection("Employee Management"),
-                  _buildSection("Transaction And Report Management"),
+                  // 4. Detailed Permission Sections (Iterating to match structure)
+                  // We map through the keys to ensure order matches sidebar
+                  ...[
+                    "Booking Management",
+                    "Service Management",
+                    "Provider Management",
+                    "User Management",
+                    "Transaction & Analytics",
+                    "Promotion Management",
+                    "Notification Management",
+                    "Employee Management"
+                  ].map((section) => _buildSection(section)).toList(),
                   
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 16),
                   
                   // 5. Footer Buttons
                   const Divider(),
@@ -216,7 +236,10 @@ class _EmployeeRoleSetupScreenState extends State<EmployeeRoleSetupScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       OutlinedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          _toggleGlobalAll(false);
+                          _roleNameController.clear();
+                        },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.grey[700],
                           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
@@ -227,7 +250,10 @@ class _EmployeeRoleSetupScreenState extends State<EmployeeRoleSetupScreen> {
                       ),
                       const SizedBox(width: 16),
                       ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          // Submit Logic
+                          print(_permissions);
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFFF6B00), // Orange
                           foregroundColor: Colors.white,
@@ -244,11 +270,6 @@ class _EmployeeRoleSetupScreenState extends State<EmployeeRoleSetupScreen> {
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: const Color(0xFFFF6B00),
-        child: const Icon(Icons.save_outlined, color: Colors.white),
       ),
     );
   }
@@ -292,8 +313,11 @@ class _EmployeeRoleSetupScreenState extends State<EmployeeRoleSetupScreen> {
     );
   }
 
-  // Specialized card for single items (top row)
+  // Specialized card for single items (like Dashboard)
   Widget _buildSinglePermissionCard(String sectionKey, String permissionKey) {
+    // Safety check
+    if (_permissions[sectionKey] == null) return const SizedBox.shrink();
+    
     bool isChecked = _permissions[sectionKey]?[permissionKey] ?? false;
     
     return Container(
@@ -306,7 +330,7 @@ class _EmployeeRoleSetupScreenState extends State<EmployeeRoleSetupScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(child: Text(permissionKey, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+          Expanded(child: Text(permissionKey, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold))),
           _CustomCheckbox(
             value: isChecked,
             onChanged: (val) {

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-
-
 class AddEmployeeScreen extends StatefulWidget {
   const AddEmployeeScreen({super.key});
 
@@ -11,7 +9,7 @@ class AddEmployeeScreen extends StatefulWidget {
 
 class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
   // Brand Colors
-  final Color _primaryOrange = const Color(0xFFFF5722); // Vibrant orange from list screen
+  final Color _primaryOrange = const Color(0xFFFF5722);
   final Color _bgGrey = const Color(0xFFF5F6FA);
 
   // Form Controllers
@@ -26,28 +24,41 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
   // Password Visibility
   bool _obscurePassword = true;
 
-  // Checkbox States
+  // Checkbox States (Updated based on Sidebar Promotion section)
+  bool _bannerChecked = true;
   bool _discountChecked = true;
   bool _couponChecked = false;
-  bool _campaignChecked = true;
-  bool _adsChecked = false;
-  bool _bannerChecked = true;
+  
+  // Notification States
+  bool _sendNotifChecked = true;
   bool _pushNotifChecked = true;
 
-  // Permission Access States (Nested Map for easy management)
-  // Format: 'SectionName' : { 'ACTION': bool }
+  // Permission Access States (Mapped to Sidebar Sections)
+  // Keys match the Sidebar Section Headers
   final Map<String, Map<String, bool>> _permissions = {
-    'Booking': {
-      'ADD': false, 'UPDATE': true, 'DELETE': false, 
-      'EXPORT': true, 'STATUS': true, 'DENY': true
+    'Booking Management': {
+      'ADD': false, 'UPDATE': true, 'DELETE': false, 'EXPORT': true, 'STATUS': true, 'DENY': true
     },
-    'Promotion': {
-      'ADD': false, 'UPDATE': true, 'DELETE': false, 
-      'EXPORT': true, 'STATUS': true, 'DENY': true
+    'Service Management': { // Covers Zone, Category, and Service Lists
+      'ADD': true, 'UPDATE': true, 'DELETE': false, 'EXPORT': false, 'STATUS': true, 'DENY': false
     },
-    'Notification': {
-      'ADD': true, 'UPDATE': true, 'DELETE': true, 
-      'EXPORT': true, 'STATUS': true, 'DENY': true
+    'Provider Management': { // Covers Provider List, Onboarding
+      'ADD': true, 'UPDATE': true, 'DELETE': false, 'EXPORT': true, 'STATUS': true, 'DENY': true
+    },
+    'User Management': { // Covers Customers
+      'ADD': false, 'UPDATE': true, 'DELETE': false, 'EXPORT': true, 'STATUS': true, 'DENY': true
+    },
+    'Transaction & Analytics': { // Covers Reports & Keyword Search
+      'ADD': false, 'UPDATE': false, 'DELETE': false, 'EXPORT': true, 'STATUS': false, 'DENY': false
+    },
+    'Promotion Management': { // Covers Banners, Discounts, Coupons
+      'ADD': true, 'UPDATE': true, 'DELETE': true, 'EXPORT': true, 'STATUS': true, 'DENY': true
+    },
+    'Notification Management': {
+      'ADD': true, 'UPDATE': false, 'DELETE': false, 'EXPORT': false, 'STATUS': true, 'DENY': false
+    },
+    'Employee Management': {
+      'ADD': false, 'UPDATE': false, 'DELETE': false, 'EXPORT': false, 'STATUS': false, 'DENY': false
     },
   };
 
@@ -61,7 +72,6 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         titleSpacing: 24,
         title: Row(
           children: [
-             
             Container(
               height: 20,
               width: 1,
@@ -71,12 +81,12 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
             const Text(
               "Add New Employee",
               style: TextStyle(
-                                    color: Color(0xFF1A1D1F),
- fontSize: 24,                     fontWeight: FontWeight.bold),
+                  color: Color(0xFF1A1D1F),
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold),
             ),
           ],
         ),
-        
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -92,8 +102,6 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
             _buildSection3Permissions(),
             const SizedBox(height: 30),
             _buildFooterButtons(),
-            //const SizedBox(height: 40),
-           // Center(child: Text("© 2025 ChayanKaro Admin. All rights reserved.", style: TextStyle(color: Colors.grey.shade500))),
             const SizedBox(height: 20),
           ],
         ),
@@ -140,7 +148,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
 
   Widget _buildStepDivider() {
     return Container(
-      width: 80, 
+      width: 80,
       height: 2,
       color: _primaryOrange.withOpacity(0.2),
       margin: const EdgeInsets.only(bottom: 25, left: 15, right: 15),
@@ -163,7 +171,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           Row(
             children: [
               Expanded(flex: 1, child: _buildTextField("Phone Number", _phoneController)),
-              const Expanded(flex: 1, child: SizedBox()), 
+              const Expanded(flex: 1, child: SizedBox()),
             ],
           ),
         ],
@@ -202,18 +210,17 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
             children: [
               Expanded(child: _buildTextField("Email Address *", _emailController, icon: Icons.email_outlined)),
               const SizedBox(width: 20),
-              // Functional Password Field
               Expanded(child: _buildTextField(
-                "Password *", 
-                _passController, 
-                isPassword: true, 
-                isObscured: _obscurePassword,
-                icon: Icons.lock_outline,
-                onSuffixPressed: () {
-                  setState(() {
-                    _obscurePassword = !_obscurePassword;
-                  });
-                }
+                  "Password *",
+                  _passController,
+                  isPassword: true,
+                  isObscured: _obscurePassword,
+                  icon: Icons.lock_outline,
+                  onSuffixPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  }
               )),
             ],
           ),
@@ -227,38 +234,78 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text("3. Set Permissions", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const Text("Configure role-based access control for this employee.", style: TextStyle(color: Colors.grey, fontSize: 12)),
+        const Text("Configure role-based access control matching the sidebar modules.", style: TextStyle(color: Colors.grey, fontSize: 12)),
         const SizedBox(height: 15),
 
-        // Booking Management
+        // 1. Booking Management
         _buildPermissionCard(
           "Booking Management",
-          null,
-          _buildAccessRow("Booking"),
+          const Text("Access to Offline Payments, Ongoing, Completed, and Canceled bookings.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+          _buildAccessRow("Booking Management"),
         ),
 
-        // Promotion Management
+        // 2. Service Management (Zone, Category, Service)
+        _buildPermissionCard(
+          "Service Management",
+          const Text("Includes: Zone Setup (Map/Buffer), Category Setup, and Service Lists.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+          _buildAccessRow("Service Management"),
+        ),
+
+        // 3. Provider Management
+        _buildPermissionCard(
+          "Provider Management",
+          const Text("Includes: Provider List, Add Provider, and Onboarding Requests.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+          _buildAccessRow("Provider Management"),
+        ),
+
+        // 4. User Management (Customers)
+        _buildPermissionCard(
+          "User Management",
+          const Text("Access to Customer List and details.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+          _buildAccessRow("User Management"),
+        ),
+
+        // 5. Transaction & Analytics
+        _buildPermissionCard(
+          "Transaction & Analytics",
+           const Text("Includes: Transactions, Booking/Provider Reports, and Keyword Search Analytics.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+          _buildAccessRow("Transaction & Analytics"),
+        ),
+
+        // 6. Promotion Management
         _buildPermissionCard(
           "Promotion Management",
-           Wrap(
-             spacing: 10,
-             runSpacing: 10,
-             children: [
-               _buildCheckbox("Discounts", _discountChecked, (v) => setState(() => _discountChecked = v!)),
-               _buildCheckbox("Coupons", _couponChecked, (v) => setState(() => _couponChecked = v!)),
-               _buildCheckbox("Campaigns", _campaignChecked, (v) => setState(() => _campaignChecked = v!)),
-               _buildCheckbox("Advertisements", _adsChecked, (v) => setState(() => _adsChecked = v!)),
-               _buildCheckbox("Promotional Banners", _bannerChecked, (v) => setState(() => _bannerChecked = v!)),
-             ],
-           ),
-          _buildAccessRow("Promotion"),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _buildCheckbox("Promotion Banners", _bannerChecked, (v) => setState(() => _bannerChecked = v!)),
+              _buildCheckbox("Discounts", _discountChecked, (v) => setState(() => _discountChecked = v!)),
+              _buildCheckbox("Coupons", _couponChecked, (v) => setState(() => _couponChecked = v!)),
+            ],
+          ),
+          _buildAccessRow("Promotion Management"),
         ),
 
-        // Notification Management
-         _buildPermissionCard(
+        // 7. Notification Management
+        _buildPermissionCard(
           "Notification Management",
-           _buildCheckbox("Send Push Notification", _pushNotifChecked, (v) => setState(() => _pushNotifChecked = v!)),
-          _buildAccessRow("Notification"),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _buildCheckbox("Send Notification", _sendNotifChecked, (v) => setState(() => _sendNotifChecked = v!)),
+              _buildCheckbox("Push Notifications", _pushNotifChecked, (v) => setState(() => _pushNotifChecked = v!)),
+            ],
+          ),
+          _buildAccessRow("Notification Management"),
+        ),
+        
+        // 8. Employee Management
+        _buildPermissionCard(
+          "Employee Management",
+          const Text("Warning: Granting this allows the user to create/edit other employees and roles.", style: TextStyle(color: Colors.redAccent, fontSize: 13)),
+          _buildAccessRow("Employee Management"),
         ),
       ],
     );
@@ -268,7 +315,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
 
   Widget _buildCardWrapper({required String title, required Widget child}) {
     return Card(
-      elevation: 0, 
+      elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       color: Colors.white,
       child: Padding(
@@ -276,7 +323,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (!title.startsWith("3")) ...[ 
+            if (!title.startsWith("3")) ...[
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -347,7 +394,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         children: [
           Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey)),
           const SizedBox(height: 8),
-          
+
           // FUNCTIONAL SWITCH
           GestureDetector(
             onTap: onTap,
@@ -373,9 +420,9 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
                         shape: BoxShape.circle,
                         color: Colors.white,
                       ),
-                      child: value 
-                        ? Icon(Icons.check, size: 14, color: _primaryOrange)
-                        : null,
+                      child: value
+                          ? Icon(Icons.check, size: 14, color: _primaryOrange)
+                          : null,
                     ),
                   ),
                 ],
@@ -397,11 +444,11 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
             height: 24,
             width: 24,
             child: Checkbox(
-              value: value, 
-              activeColor: _primaryOrange,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-              side: BorderSide(color: Colors.grey.shade400),
-              onChanged: onChanged
+                value: value,
+                activeColor: _primaryOrange,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                side: BorderSide(color: Colors.grey.shade400),
+                onChanged: onChanged
             ),
           ),
           const SizedBox(width: 8),
@@ -413,14 +460,14 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
   }
 
   Widget _buildTextField(
-    String label, 
-    TextEditingController controller, 
-    {
-      bool isPassword = false, 
-      bool isObscured = false, 
-      IconData? icon,
-      VoidCallback? onSuffixPressed
-    }) {
+      String label,
+      TextEditingController controller,
+      {
+        bool isPassword = false,
+        bool isObscured = false,
+        IconData? icon,
+        VoidCallback? onSuffixPressed
+      }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -432,19 +479,19 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           style: const TextStyle(fontSize: 14),
           decoration: InputDecoration(
             prefixIcon: icon != null ? Icon(icon, size: 18, color: Colors.grey) : null,
-            suffixIcon: isPassword 
-              ? IconButton(
-                  icon: Icon(
-                    isObscured ? Icons.visibility_off : Icons.visibility, // Dynamic Icon
-                    color: Colors.grey,
-                    size: 20,
-                  ),
-                  onPressed: onSuffixPressed,
-                ) 
-              : null,
+            suffixIcon: isPassword
+                ? IconButton(
+              icon: Icon(
+                isObscured ? Icons.visibility_off : Icons.visibility,
+                color: Colors.grey,
+                size: 20,
+              ),
+              onPressed: onSuffixPressed,
+            )
+                : null,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide(color: Colors.grey.shade300), 
+              borderSide: BorderSide(color: Colors.grey.shade300),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(6),
@@ -480,7 +527,10 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         ),
         const SizedBox(width: 16),
         ElevatedButton(
-          onPressed: () {},
+          onPressed: () {
+            // Logic to print permissions to console for verification
+            print(_permissions);
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: _primaryOrange,
             elevation: 0,

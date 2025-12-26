@@ -269,12 +269,12 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                       // 2. Provider Map
                       NavTile(
                         icon: Icons.person_pin_circle_outlined,
-                        label: 'Provider Map',
+                        label: 'Add Buffer',
                         collapsed: collapsed,
                         isChild: true,
-                        isActive: _isActive('zone/provider-map'),
+                        isActive: _isActive('zone/bufferadd'),
                         // Use this route string in your main navigation switch
-                        onTap: () => widget.onNav?.call('zone/provider-map'),
+                        onTap: () => widget.onNav?.call('zone/bufferadd'),
                       ),
                     ],
                   ),
@@ -409,6 +409,14 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                         isActive: _isActive('provider/onboarding'),
                         onTap: () => widget.onNav?.call('provider/onboarding'),
                       ),
+                      NavTile(
+  icon: Icons.calendar_today_outlined,
+  label: 'Holidays',
+  collapsed: collapsed,
+  isChild: true, 
+  isActive: _isActive('provider/holidays'), // Adjust route string if needed (e.g. 'provider/holidays')
+  onTap: () => widget.onNav?.call('provider/holidays'),
+),
                     ],
                   ),
                 ),

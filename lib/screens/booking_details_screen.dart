@@ -504,10 +504,16 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
               const SizedBox(height: 15),
               const Text("Address:", style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 5),
-              Text(
-                "${_booking!.address?.addressLine1 ?? ''}, ${_booking!.address?.city ?? ''}",
-                style: const TextStyle(color: Colors.grey, height: 1.4)
-              ),
+             Text(
+  [
+    _booking!.address?.addressLine1,
+    _booking!.address?.addressLine2,
+    _booking!.address?.city,
+    _booking!.address?.state,
+    _booking!.address?.postCode
+  ].where((element) => element != null && element.isNotEmpty).join(', '),
+  style: const TextStyle(color: Colors.grey, height: 1.4),
+),
             ],
           ),
         ),

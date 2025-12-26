@@ -73,7 +73,7 @@ class _CustomerOverviewScreenState extends State<CustomerOverviewScreen> {
                     border: Border.all(color: kBorderColor),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.share_outlined, color: kPrimaryOrange, size: 20),
+                 // child: const Icon(Icons.share_outlined, color: kPrimaryOrange, size: 20),
                 )
               ],
             ),

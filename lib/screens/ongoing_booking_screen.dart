@@ -405,9 +405,23 @@ class _OngoingBookingScreenState extends State<OngoingBookingScreen> {
                                           )),
                                           
                                           // Location
-                                          DataCell(Text(
-                                              data.address?.city ?? "Unknown",
-                                              style: _cellStyle())),
+                                         // City & Pincode DataCell
+DataCell(
+  Column(
+    mainAxisAlignment: MainAxisAlignment.center,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        data.address?.city ?? "Unknown City",
+        style: _cellStyle(bold: true), // City in bold (Main info)
+      ),
+      Text(
+        data.address?.postCode ?? "No Pincode",
+        style: _subStyle(), // Pincode smaller/grey (Sub info)
+      ),
+    ],
+  ),
+),
                                           
                                           // Schedule
                                           DataCell(Column(
